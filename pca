@@ -26,7 +26,7 @@
 ##########################
 # BASIC CONFIGRATION
 
-PCA_BASE_PATH="/etc/pca"
+PCA_BASE_PATH="/etc/pki"
 PCA_BASE_NAME="Welter.Rocks"
 PCA_BASE_OCSP_URL="http://ocsp.welter.rocks"
 PCA_BASE_PKI_URL="http://pki.welter.rocks"
@@ -177,7 +177,7 @@ function config_ca_section_default()
 	cat <<-EOF
 	[ default ]
 	ca                      = $1
-	dir                     = $PCA_BASE_PATH/$1
+	dir                     = $PCA_BASE_PATH
 	base_url                = $PCA_BASE_PKI_URL
 	aia_url                 = \$base_url/\$ca.cer
 	crl_url                 = \$base_url/\$ca.crl
@@ -345,26 +345,26 @@ function config_ca_section_crl_info()
 
 function config_ca_section_policies()
 {
-	mt_country_name = "match"
-	mt_state_or_province_name = "optional"
-	mt_locality_name = "optional"
-	mt_street_address = "optional"
-	mt_postal_code = "optional"
-	mt_owner = "match"
-	mt_organization_name = "optional"
-	mt_organizational_unit_name = "optional"
-	mt_common_name = "supplied"
+	mt_country_name="match"
+	mt_state_or_province_name="optional"
+	mt_locality_name="optional"
+	mt_street_address="optional"
+	mt_postal_code="optional"
+	mt_owner="match"
+	mt_organization_name="optional"
+	mt_organizational_unit_name="optional"
+	mt_common_name="supplied"
 	
-	any_country_name = "optional"
-	any_state_or_province_name = "optional"
-	any_locality_name = "optional"
-	any_street_address = "optional"
-	any_postal_code = "optional"
-	any_owner = "optional"
-	any_organization_name = "optional"
-	any_organizational_unit_name = "optional"
-	any_common_name = "optional"
-	any_email_address = "optional"
+	any_country_name="optional"
+	any_state_or_province_name="optional"
+	any_locality_name="optional"
+	any_street_address="optional"
+	any_postal_code="optional"
+	any_owner="optional"
+	any_organization_name="optional"
+	any_organizational_unit_name="optional"
+	any_common_name="optional"
+	any_email_address="optional"
 	
 	case $1 in
 		root-ca|master-ca)
@@ -393,7 +393,7 @@ function config_ca_section_policies()
 	postalCode		= $mt_postal_code
 	owner			= $mt_owner
 	organizationName        = $mt_organization_name
-	organizationalUnitName  = $mt_organiational_unit_name
+	organizationalUnitName  = $mt_organizational_unit_name
 	commonName              = $mt_common_name
 	
 	[ any_pol ]
@@ -447,14 +447,14 @@ function config_ca_section_operational()
 			default_md="$PCA_COMPONENTCA_MD"
 			default_days="$PCA_COMPONENTCA_VALID_DAYS"
 			default_crl_days="$PCA_COMPONENTCA_CRL_DAYS"
-			x509_extensions="signing_ca_ext"
+			x509_extensions="server_ext"
 		;;
 		identity-ca)
 			default_ca="identity_ca"
 			default_md="$PCA_IDENTITYCA_MD"
 			default_days="$PCA_IDENTITYCA_VALID_DAYS"
 			default_crl_days="$PCA_IDENTITYCA_CRL_DAYS"
-			x509_extensions="signing_ca_ext"
+			x509_extensions="identity_ext"
 		;;
 		*)
 			error 11 "Unknown CA for operational section"
@@ -466,9 +466,9 @@ function config_ca_section_operational()
 	default_ca              = $default_ca
 	
 	[ $default_ca ]
-	certificate             = \$dir/ca/\$ca.crt
+	certificate             = \$dir/ca/certs/\$ca.crt
 	private_key             = \$dir/ca/\$ca/private/\$ca.key
-	new_certs_dir           = \$dir/ca/\$ca
+	new_certs_dir           = \$dir/ca/\$ca/certs
 	serial                  = \$dir/ca/\$ca/db/\$ca.crt.srl
 	crlnumber               = \$dir/ca/\$ca/db/\$ca.crl.srl
 	database                = \$dir/ca/\$ca/db/\$ca.db
@@ -869,42 +869,42 @@ function config_ca_tmpl_client()
 function configuration_write()
 {
 	for ca in root-ca master-ca component-ca network-ca identity-ca; do
-		config_file="$PCA_BASE_PATH/conf/$ca.conf"
-		config_header root-ca > $config_file || return 1
-		config_ca_section_default root-ca >> $config_file 
-		config_ca_section_req root-ca >> $config_file
-		config_ca_section_dn root-ca >> $config_file
-		config_ca_section_reqext root-ca >> $config_file
-		config_ca_section_crl_info root-ca >> $config_file
-		config_ca_section_policies root-ca >> $config_file
-		config_ca_section_operational root-ca >> $config_file
-		config_ca_section_ext root-ca >> $config_file
-		chmod 750 $config_file >/dev/null 2>&1
+		config_file="$PCA_BASE_PATH/ca/conf/$ca.conf"
+		config_header $ca > $config_file || return 1
+		config_ca_section_default $ca >> $config_file 
+		config_ca_section_req $ca >> $config_file
+		config_ca_section_dn $ca >> $config_file
+		config_ca_section_reqext $ca >> $config_file
+		config_ca_section_crl_info $ca >> $config_file
+		config_ca_section_policies $ca >> $config_file
+		config_ca_section_operational $ca >> $config_file
+		config_ca_section_ext $ca >> $config_file
+		chmod 640 $config_file >/dev/null 2>&1
 	done
 	
-	config_header "OCSP-Signing template" > $PCA_BASE_PATH/conf/ocspsign.conf || return 2
-	config_ca_tmpl_ocspsign >> $PCA_BASE_PATH/conf/ocspsign.conf
-	chmod 750 $PCA_BASE_PATH/conf/ocspsign.conf >/dev/null 2>&1
+	config_header "OCSP-Signing template" > $PCA_BASE_PATH/ca/conf/ocspsign.conf || return 2
+	config_ca_tmpl_ocspsign >> $PCA_BASE_PATH/ca/conf/ocspsign.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/ocspsign.conf >/dev/null 2>&1
 
-	config_header "Identity template" > $PCA_BASE_PATH/conf/identity.conf || return 2
-	config_ca_tmpl_identity >> $PCA_BASE_PATH/conf/identity.conf
-	chmod 750 $PCA_BASE_PATH/conf/identity.conf >/dev/null 2>&1
+	config_header "Identity template" > $PCA_BASE_PATH/ca/conf/identity.conf || return 2
+	config_ca_tmpl_identity >> $PCA_BASE_PATH/ca/conf/identity.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/identity.conf >/dev/null 2>&1
 
-	config_header "Timestamp template" > $PCA_BASE_PATH/conf/timestamp.conf || return 2
-	config_ca_tmpl_timestamp >> $PCA_BASE_PATH/conf/timestamp.conf
-	chmod 750 $PCA_BASE_PATH/conf/timestamp.conf >/dev/null 2>&1
+	config_header "Timestamp template" > $PCA_BASE_PATH/ca/conf/timestamp.conf || return 2
+	config_ca_tmpl_timestamp >> $PCA_BASE_PATH/ca/conf/timestamp.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/timestamp.conf >/dev/null 2>&1
 
-	config_header "Encryption template" > $PCA_BASE_PATH/conf/encryption.conf || return 2
-	config_ca_tmpl_encryption >> $PCA_BASE_PATH/conf/encryption.conf
-	chmod 750 $PCA_BASE_PATH/conf/encryption.conf >/dev/null 2>&1
+	config_header "Encryption template" > $PCA_BASE_PATH/ca/conf/encryption.conf || return 2
+	config_ca_tmpl_encryption >> $PCA_BASE_PATH/ca/conf/encryption.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/encryption.conf >/dev/null 2>&1
 
-	config_header "Server template" > $PCA_BASE_PATH/conf/server.conf || return 2
-	config_ca_tmpl_server >> $PCA_BASE_PATH/conf/server.conf
-	chmod 750 $PCA_BASE_PATH/conf/server.conf >/dev/null 2>&1
+	config_header "Server template" > $PCA_BASE_PATH/ca/conf/server.conf || return 2
+	config_ca_tmpl_server >> $PCA_BASE_PATH/ca/conf/server.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/server.conf >/dev/null 2>&1
 
-	config_header "Client template" > $PCA_BASE_PATH/conf/client.conf || return 2
-	config_ca_tmpl_client >> $PCA_BASE_PATH/conf/client.conf
-	chmod 750 $PCA_BASE_PATH/conf/client.conf >/dev/null 2>&1
+	config_header "Client template" > $PCA_BASE_PATH/ca/conf/client.conf || return 2
+	config_ca_tmpl_client >> $PCA_BASE_PATH/ca/conf/client.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/client.conf >/dev/null 2>&1
 }
 
 # END CONFIGURATION WRITE
@@ -952,34 +952,123 @@ done
 ##########################
 # OPMODE: SETUP
 
-if [ "$OPMODE" = "SETUP" ]; then
+if [ "$PCA_OPMODE" = "setup" ]; then
 	if [ "$PCA_OVERWRITE" = "" ]; then
-		[ -d "$PCA_BASE_PATH/ca/$PCA_ROOTCA_RELATIVE_PATH" ] && error 2 "Root CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/$PCA_MASTERCA_RELATIVE_PATH" ] && error 2 "Master CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/$PCA_COMPONENTCA_RELATIVE_PATH" ] && error 2 "Component CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/$PCA_NETWORKCA_RELATIVE_PATH" ] && error 2 "Network CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/$PCA_IDENTITYCA_RELATIVE_PATH" ] && error 2 "Identity CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/root-ca" ] && error 2 "Root CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/master-ca" ] && error 2 "Master CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/component-ca" ] && error 2 "Component CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/network-ca" ] && error 2 "Network CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/identity-ca" ] && error 2 "Identity CA path exists"
 	fi
 	
-	echo -n "[0;1;34;94mSetting up Perfect-CA...[0m"
+	echo -n "[0;1;34;94mSetting up Perfect-CA paths and configs...[0m"
 	
-	rm -rf $PCA_BASE_PATH/ca/{crl,certs,conf} >/dev/null 2>&1
-	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf} >/dev/null 2>&1
-	chmod 775 $PCA_BASE_PATH/ca/{crl,certs} >/dev/null 2>&1
-	chmod 770 $PCA_BASE_PATH/ca/conf >/dev/null 2>&1	
+	rm -rf $PCA_BASE_PATH/ca/{crl,certs,conf,requests} >/dev/null 2>&1
+	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf,requests} >/dev/null 2>&1
+	chmod 775 $PCA_BASE_PATH/ca/{crl,certs,conf,requests} >/dev/null 2>&1
 	
-	for pth in $PCA_ROOTCA_RELATIVE_PATH $PCA_MASTERCA_RELATIVE_PATH $PCA_COMPONENTCA_RELATIVE_PATH $PCA_NETWORKCA_RELATIVE_PATH $PCA_IDENTITYCA_RELATIVE_PATH; do
+	for pth in root-ca master-ca component-ca network-ca identity-ca; do
 		rm -rf $PCA_BASE_PATH/ca/$pth >/dev/null 2>&1
-		mkdir -p $PCA_BASE_PATH/ca/$pth/{private,db} >/dev/null 2>&1
-		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/ca.db >/dev/null 2>&1
-		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/ca.db.attr >/dev/null 2>&1
-		echo "01" > $PCA_BASE_PATH/ca/$pth/db/ca.crt.srl >/dev/null 2>&1
-		echo "01" > $PCA_BASE_PATH/ca/$pth/db/ca.crl.srl >/dev/null 2>&1
+		mkdir -p $PCA_BASE_PATH/ca/$pth/{private,db,certs} >/dev/null 2>&1
+		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/$pth.db >/dev/null 2>&1
+		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/$pth.db.attr >/dev/null 2>&1
+		echo "01" > $PCA_BASE_PATH/ca/$pth/db/$pth.crt.srl
+		echo "01" > $PCA_BASE_PATH/ca/$pth/db/$pth.crl.srl
 		chmod -R 700 $PCA_BASE_PATH/ca/$pth/private >/dev/null 2>&1
+		chmod -R 755 $PCA_BASE_PATH/ca/$pth/certs >/dev/null 2>&1
 		chmod -R 775 $PCA_BASE_PATH/ca/$pth/db >/dev/null 2>&1
 	done
 	
 	configuration_write && echo $OK || echo $FAILED
 	
+	echo -n "[0;1;34;94mSetting up Root-CA...[0m"
+	$PCA_OPENSSL req -new -nodes \
+		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
+		-out $PCA_BASE_PATH/ca/requests/root-ca.csr \
+		-keyout $PCA_BASE_PATH/ca/root-ca/private/root-ca.key >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -selfsign -batch \
+		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
+		-in $PCA_BASE_PATH/ca/requests/root-ca.csr \
+		-out $PCA_BASE_PATH/ca/certs/root-ca.crt \
+		-extensions root_ca_ext >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -gencrl -batch \
+		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
+		-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mSetting up Master-CA...[0m"
+	$PCA_OPENSSL req -new -nodes \
+		-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
+		-out $PCA_BASE_PATH/ca/requests/master-ca.csr \
+		-keyout $PCA_BASE_PATH/ca/master-ca/private/master-ca.key >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -batch \
+		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
+		-in $PCA_BASE_PATH/ca/requests/master-ca.csr \
+		-out $PCA_BASE_PATH/ca/certs/master-ca.crt \
+		-extensions intermediate_ca_ext >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -gencrl -batch \
+		-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
+		-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
+	cat $PCA_BASE_PATH/ca/certs/master-ca.crt $PCA_BASE_PATH/ca/certs/root-ca.crt > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mSetting up Network-CA...[0m"
+	$PCA_OPENSSL req -new -nodes \
+		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
+		-out $PCA_BASE_PATH/ca/requests/network-ca.csr \
+		-keyout $PCA_BASE_PATH/ca/network-ca/private/network-ca.key >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -batch \
+		-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
+		-in $PCA_BASE_PATH/ca/requests/network-ca.csr \
+		-out $PCA_BASE_PATH/ca/certs/network-ca.crt \
+		-extensions intermediate_ca_ext >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -gencrl -batch \
+		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
+		-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
+	cat $PCA_BASE_PATH/ca/certs/network-ca.crt $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mSetting up Identity-CA...[0m"
+	$PCA_OPENSSL req -new -nodes \
+		-config $PCA_BASE_PATH/ca/conf/identity-ca.conf \
+		-out $PCA_BASE_PATH/ca/requests/identity-ca.csr \
+		-keyout $PCA_BASE_PATH/ca/identity-ca/private/identity-ca.key >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -batch \
+		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
+		-in $PCA_BASE_PATH/ca/requests/identity-ca.csr \
+		-out $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+		-extensions signing_ca_ext >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -gencrl -batch \
+		-config $PCA_BASE_PATH/ca/conf/identity-ca.conf \
+		-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
+	cat $PCA_BASE_PATH/ca/certs/identity-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mSetting up Component-CA...[0m"
+	$PCA_OPENSSL req -new -nodes \
+		-config $PCA_BASE_PATH/ca/conf/component-ca.conf \
+		-out $PCA_BASE_PATH/ca/requests/component-ca.csr \
+		-keyout $PCA_BASE_PATH/ca/component-ca/private/component-ca.key >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -batch \
+		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
+		-in $PCA_BASE_PATH/ca/requests/component-ca.csr \
+		-out $PCA_BASE_PATH/ca/certs/component-ca.crt \
+		-extensions signing_ca_ext >/dev/null 2>&1 && \
+	$PCA_OPENSSL ca -gencrl -batch \
+		-config $PCA_BASE_PATH/ca/conf/component-ca.conf \
+		-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
+	cat $PCA_BASE_PATH/ca/certs/component-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
+	echo $OK || echo $FAILED
+
+	for pth in root-ca master-ca component-ca network-ca identity-ca; do
+		echo "[0;1;34;94m=== Encrypting $pth private key ===[0m"
+		$PCA_OPENSSL rsa -des -in $PCA_BASE_PATH/ca/$pth/private/$pth.key -out $PCA_BASE_PATH/ca/$pth/private/$pth.key
+	done
+	
+	echo -e "\n[0;1;34;94mPerfect-CA has been setup.[0m"
+	echo -e "[0;1;34;94mYou can now backup your Root-CA key[0m"
+	echo -e "[0;1;34;94mfrom $PCA_BASE_PATH/ca/root-ca/private/root-ca.key[0m"
+	echo -e "[0;1;34;94mand safely delete it (eg, with shred),[0m"
+	echo -e "[0;1;34;94mas this is your offline root CA's key.[0m"
 fi
                                                                       
