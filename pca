@@ -1,0 +1,985 @@
+#!/bin/bash
+#################################################################################
+#                                                                               #
+#    pca - An OpenSSL based "perfect" CA setup and management tool              #
+#    Copyright (C) 2018 Oliver Welter <oliver@welter.rocks>                     #
+#                                                                               #
+#    This program is free software: you can redistribute it and/or modify       #
+#    it under the terms of the GNU General Public License as published by       #
+#    the Free Software Foundation, either version 3 of the License, or          #
+#    (at your option) any later version.                                        #
+#                                                                               #
+#    This program is distributed in the hope that it will be useful,            #
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of             #
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              #
+#    GNU General Public License for more details.                               #
+#                                                                               #
+#    You should have received a copy of the GNU General Public License          #
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.     #
+#                                                                               #
+#################################################################################
+#                                                                               #
+#    Usage: pca --help                                                          #
+#                                                                               #
+#################################################################################
+
+##########################
+# BASIC CONFIGRATION
+
+PCA_BASE_PATH="/etc/pca"
+PCA_BASE_NAME="Welter.Rocks"
+PCA_BASE_OCSP_URL="http://ocsp.welter.rocks"
+PCA_BASE_PKI_URL="http://pki.welter.rocks"
+PCA_BASE_TRUSTLIST_URL="https://pki.welter.rocks/trustList.etl"
+
+PCA_DN_COUNTRYNAME="DE"
+PCA_DN_STATEORPROVINCENAME="Hessen"
+PCA_DN_LOCALITYNAME="Gilserberg"
+PCA_DN_STREETADDRESS="Burgweg 9"
+PCA_DN_POSTALCODE="34630"
+PCA_DN_OWNER="Oliver Welter"
+PCA_DN_ORGANIZATIONNAME="Welter"
+
+PCA_ROOTCA_BITS="4096"
+PCA_ROOTCA_MD="sha256"
+PCA_ROOTCA_VALID_DAYS="7665"
+PCA_ROOTCA_CRL_DAYS="365"
+PCA_ROOTCA_ORG_UNIT_NAME="$PCA_BASE_NAME Root Certificate Authority"
+
+PCA_MASTERCA_BITS="4096"
+PCA_MASTERCA_MD="sha256"
+PCA_MASTERCA_VALID_DAYS="3650"
+PCA_MASTERCA_CRL_DAYS="180"
+PCA_MASTERCA_ORG_UNIT_NAME="$PCA_BASE_NAME Master Certificate Authority"
+
+PCA_COMPONENTCA_BITS="4096"
+PCA_COMPONENTCA_MD="sha256"
+PCA_COMPONENTCA_VALID_DAYS="3650"
+PCA_COMPONENTCA_CRL_DAYS="180"
+PCA_COMPONENTCA_ORG_UNIT_NAME="$PCA_BASE_NAME Component Certificate Authority"
+
+PCA_NETWORKCA_BITS="4096"
+PCA_NETWORKCA_MD="sha256"
+PCA_NETWORKCA_VALID_DAYS="3650"
+PCA_NETWORKCA_CRL_DAYS="180"
+PCA_NETWORKCA_ORG_UNIT_NAME="$PCA_BASE_NAME Network Certificate Authority"
+
+PCA_IDENTITYCA_BITS="4096"
+PCA_IDENTITYCA_MD="sha256"
+PCA_IDENTITYCA_VALID_DAYS="3650"
+PCA_IDENTITYCA_CRL_DAYS="180"
+PCA_IDENTITYCA_ORG_UNIT_NAME="$PCA_BASE_NAME Identity Certificate Authority"
+
+PCA_OCSPSIGN_BITS="2048"
+PCA_OCSPSIGN_MD="sha1"
+
+PCA_TIMESTAMP_BITS="2048"
+PCA_TIMESTAMP_MD="sha1"
+
+PCA_ENCRYPTION_BITS="8192"
+PCA_ENCRYPTION_MD="sha512"
+
+PCA_SERVER_BITS="4096"
+PCA_SERVER_MD="sha256"
+PCA_SERVER_SAN_DNS="welter.rocks"
+
+PCA_CLIENT_BITS="4096"
+PCA_CLIENT_MD="sha256"
+
+PCA_IDENTITY_BITS="8192"
+PCA_IDENTITY_MD="sha512"
+
+PCA_OPENSSL="/usr/bin/openssl"
+
+[ -x "$PCA_OPENSSL" ] || PCA_OPENSSL=`which openssl 2>/dev/null`
+[ -x "$PCA_OPENSSL" ] || error 1 "Missing OpenSSL"
+
+# END BASIC CONFIGURATION
+##########################
+
+##########################
+# ERROR FUNCTION
+
+FAILED="[0;1;31;91mFAILED[0m"
+OK="[0;1;32;92mOK[0m"
+
+function error()
+{
+	echo "[0;1;31;91mERROR:[0m [0;1;32;93m$2[0m"
+	exit $1
+}
+
+# END ERROR FUNCTION
+##########################
+
+##########################
+# CONFIGURATION WRITE
+
+function config_header()
+{
+	ident=""
+	date=`date "+%Y-%m-%d %H:%M:%S"`
+	
+	case $1 in
+		root-ca)
+			ident="$PCA_BASE_NAME Root CA configuration"	
+		;;
+		*)
+			ident="$1"
+		;;
+	esac
+	
+	cat <<-EOF
+	#########################################################
+	#                                                       #
+	# This file has been generated at by                    #
+	#  ____            __           _         ____    _     #
+	# |  _ \ ___ _ __ / _| ___  ___| |_      / ___|  / \    #
+	# | |_) / _ \ '__| |_ / _ \/ __| __|____| |     / _ \   #
+	# |  __/  __/ |  |  _|  __/ (__| ||_____| |___ / ___ \  #
+	# |_|   \___|_|  |_|  \___|\___|\__|     \____/_/   \_\ #
+	#                                                       #
+	# https://github.com/VerboteneZone/perfect-ca           #
+	#                                                       #
+	#########################################################
+	# $ident
+	# Generated at: $date
+
+	EOF
+}
+
+function config_ca_section_default()
+{
+		
+	assurance=""
+	deviceass=""
+	trustlist=""
+	
+	case $1 in
+		root-ca|master-ca|network-ca)
+			assurance="1"
+			deviceass="1"
+			trustlist="1"
+		;;
+		component-ca)
+			deviceass="1"
+			trustlist="1"
+		;;
+		identity-ca)
+			assurance="1"
+			trustlist="1"
+		;;
+		*)
+			error 11 "Unkown CA for default section"
+		;;
+	esac
+	
+	cat <<-EOF
+	[ default ]
+	ca                      = $1
+	dir                     = $PCA_BASE_PATH/$1
+	base_url                = $PCA_BASE_PKI_URL
+	aia_url                 = \$base_url/\$ca.cer
+	crl_url                 = \$base_url/\$ca.crl
+	name_opt                = multiline,-esc_msb,utf8
+	openssl_conf            = openssl_init
+
+	[ openssl_init ]
+	oid_section             = include_oids
+	
+	[ include_oids ]
+	EOF
+
+	[ "$assurance" = "1" ] && echo "perfectCAAssurance      = $PCA_BASE_NAME Assurance, 1.3.6.1.4.1.0.1.7.8"
+	[ "$deviceass" = "1" ] && echo "perfectCADevice         = $PCA_BASE_NAME Device Assurance, 1.3.6.1.4.1.0.1.7.9"
+	[ "$trustlist" = "1" ] && echo "perfectCATrustList      = $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900"
+	
+	echo ""
+}
+
+function config_ca_section_req()
+{
+	default_bits=""
+	default_md=""
+	
+	case $1 in
+		root-ca)
+			default_bits="$PCA_ROOTCA_BITS"
+			default_md="$PCA_ROOTCA_MD"
+		;;
+		master-ca)
+			default_bits="$PCA_MASTERCA_BITS"
+			default_md="$PCA_MASTERCA_MD"
+		;;
+		component-ca)
+			default_bits="$PCA_COMPONENTCA_BITS"
+			default_md="$PCA_COMPONENTCA_MD"
+		;;
+		network-ca)
+			default_bits="$PCA_NETWORKCA_BITS"
+			default_md="$PCA_NETWORKCA_MD"
+		;;
+		identity-ca)
+			default_bits="$PCA_IDENTITYCA_BITS"
+			default_md="$PCA_IDENTITYCA_MD"
+		;;
+		*)
+			error 11 "Unkown CA for section req"
+		;;
+	esac
+	
+	cat <<-EOF
+	[ req ]
+	default_bits            = $default_bits
+	encrypt_key             = yes
+	default_md              = $default_md
+	utf8                    = yes
+	string_mask             = utf8only
+	prompt                  = no
+	distinguished_name      = ca_dn
+	req_extensions          = ca_reqext
+
+	EOF
+}
+
+function config_ca_section_dn()
+{
+	organizational_unit_name=""
+	common_name=""
+	
+	case $1 in
+		root-ca)
+			organizational_unit_name="$PCA_ROOTCA_ORG_UNIT_NAME"
+			common_name="$PCA_BASE_NAME Root CA"
+		;;
+		master-ca)
+			organizational_unit_name="$PCA_MASTERCA_ORG_UNIT_NAME"
+			common_name="$PCA_BASE_NAME Master CA"
+		;;
+		component-ca)
+			organizational_unit_name="$PCA_COMPONENTCA_ORG_UNIT_NAME"
+			common_name="$PCA_BASE_NAME Component CA"
+		;;
+		network-ca)
+			organizational_unit_name="$PCA_NETWORKCA_ORG_UNIT_NAME"
+			common_name="$PCA_BASE_NAME Network CA"
+		;;
+		identity-ca)
+			organizational_unit_name="$PCA_IDENTITYCA_ORG_UNIT_NAME"
+			common_name="$PCA_BASE_NAME Identity CA"
+		;;
+		*)
+			error 11 "Unkown CA for section dn"
+		;;
+	esac
+	
+	cat <<-EOF
+	[ ca_dn ]
+	countryName             = "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     = "$PCA_DN_STATEORPROVINCENAME"
+	localityName            = "$PCA_DN_LOCALITYNAME"
+	streetAddress           = "$PCA_DN_STREETADDRESS"
+	postalCode              = "$PCA_DN_POSTALCODE"
+	owner			= "$PCA_DN_OWNER"
+	organizationName        = "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  = "$organizational_unit_name"
+	commonName              = "$common_name"
+
+	EOF
+}
+
+function config_ca_section_reqext()
+{
+	key_usage=""
+	basic_constraints=""
+	subject_key_identifier=""
+	
+	case $1 in
+		root-ca|master-ca|network-ca)
+			key_usage="critical,keyCertSign,cRLSign"
+			basic_constraints="critical,CA:true"
+			subject_key_identifier="hash"
+		;;
+		component-ca|identity-ca)
+			key_usage="critical,keyCertSign,cRLSign"
+			basic_constraints="critical,CA:true,pathlen:0"
+			subject_key_identifier="hash"
+		;;
+		*)
+			error 11 "Unkown CA for section reqext"
+		;;
+	esac
+	
+	cat <<-EOF
+	[ ca_reqext ]
+	keyUsage                = $key_usage
+	basicConstraints        = $basic_constraints
+	subjectKeyIdentifier    = $subject_key_identifier
+
+	EOF
+}
+
+function config_ca_section_crl_info()
+{
+	case $1 in
+		root-ca|master-ca|network-ca|component-ca|identity-ca)
+		;;
+		*)
+			error 11 "Unkown CA for section crl info"
+		;;
+	esac
+	
+	cat <<-EOF
+	[ crl_ext ]
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	
+	[ issuer_info ]
+	caIssuers;URI.0         = \$aia_url
+	
+	[ crl_info ]
+	URI.0                   = \$crl_url
+
+	EOF
+}
+
+function config_ca_section_policies()
+{
+	mt_country_name = "match"
+	mt_state_or_province_name = "optional"
+	mt_locality_name = "optional"
+	mt_street_address = "optional"
+	mt_postal_code = "optional"
+	mt_owner = "match"
+	mt_organization_name = "optional"
+	mt_organizational_unit_name = "optional"
+	mt_common_name = "supplied"
+	
+	any_country_name = "optional"
+	any_state_or_province_name = "optional"
+	any_locality_name = "optional"
+	any_street_address = "optional"
+	any_postal_code = "optional"
+	any_owner = "optional"
+	any_organization_name = "optional"
+	any_organizational_unit_name = "optional"
+	any_common_name = "optional"
+	any_email_address = "optional"
+	
+	case $1 in
+		root-ca|master-ca)
+			mt_state_or_province_name="match"
+			mt_locality_name="match"
+			mt_street_address="match"
+			mt_postal_code="match"
+			mt_organization_name="match"
+		;;
+		network-ca|component-ca)
+			mt_organization_name="match"
+		;;
+		identity-ca)
+		;;
+		*)
+			error 11 "Unkown CA for section crl info"
+		;;
+	esac
+	
+	cat <<-EOF
+	[ match_pol ]
+	countryName             = $mt_country_name
+	stateOrProvinceName     = $mt_state_or_province_name
+	localityName            = $mt_locality_name
+	streetAddress		= $mt_street_address
+	postalCode		= $mt_postal_code
+	owner			= $mt_owner
+	organizationName        = $mt_organization_name
+	organizationalUnitName  = $mt_organiational_unit_name
+	commonName              = $mt_common_name
+	
+	[ any_pol ]
+	domainComponent         = $any_domain_component
+	countryName             = $any_country_name
+	stateOrProvinceName     = $any_state_or_province_name
+	localityName            = $any_locality_name
+	streetAddress		= $any_street_address
+	postalCode		= $any_postal_code
+	owner			= $any_owner
+	organizationName        = $any_organization_name
+	organizationalUnitName  = $any_organizational_unit_name
+	commonName              = $any_common_name
+	emailAddress            = $any_email_address
+	
+	EOF
+}
+
+function config_ca_section_operational()
+{
+	default_ca=""
+	default_md=""
+	default_days=""
+	default_crl_days=""
+	x509_extensions=""
+	
+	case $1 in
+		root-ca)
+			default_ca="root_ca"
+			default_md="$PCA_ROOTCA_MD"
+			default_days="$PCA_ROOTCA_VALID_DAYS"
+			default_crl_days="$PCA_ROOTCA_CRL_DAYS"
+			x509_extensions="intermediate_ca_ext"
+		;;
+		master-ca)
+			default_ca="master_ca"
+			default_md="$PCA_MASTERCA_MD"
+			default_days="$PCA_MASTERCA_VALID_DAYS"
+			default_crl_days="$PCA_MASTERCA_CRL_DAYS"
+			x509_extensions="intermediate_ca_ext"
+		;;
+		network-ca)
+			default_ca="network_ca"
+			default_md="$PCA_NETWORKCA_MD"
+			default_days="$PCA_NETWORKCA_VALID_DAYS"
+			default_crl_days="$PCA_NETWORKCA_CRL_DAYS"
+			x509_extensions="signing_ca_ext"
+		;;
+		component-ca)
+			default_ca="component_ca"
+			default_md="$PCA_COMPONENTCA_MD"
+			default_days="$PCA_COMPONENTCA_VALID_DAYS"
+			default_crl_days="$PCA_COMPONENTCA_CRL_DAYS"
+			x509_extensions="signing_ca_ext"
+		;;
+		identity-ca)
+			default_ca="identity_ca"
+			default_md="$PCA_IDENTITYCA_MD"
+			default_days="$PCA_IDENTITYCA_VALID_DAYS"
+			default_crl_days="$PCA_IDENTITYCA_CRL_DAYS"
+			x509_extensions="signing_ca_ext"
+		;;
+		*)
+			error 11 "Unknown CA for operational section"
+		;;
+	esac
+	
+	cat <<-EOF
+	[ ca ]
+	default_ca              = $default_ca
+	
+	[ $default_ca ]
+	certificate             = \$dir/ca/\$ca.crt
+	private_key             = \$dir/ca/\$ca/private/\$ca.key
+	new_certs_dir           = \$dir/ca/\$ca
+	serial                  = \$dir/ca/\$ca/db/\$ca.crt.srl
+	crlnumber               = \$dir/ca/\$ca/db/\$ca.crl.srl
+	database                = \$dir/ca/\$ca/db/\$ca.db
+	unique_subject          = no
+	default_days            = $default_days
+	default_md              = $default_md
+	policy                  = match_pol
+	email_in_dn             = no
+	preserve                = no
+	name_opt                = \$name_opt
+	cert_opt                = ca_default
+	copy_extensions         = none
+	x509_extensions         = $x509_extensions
+	default_crl_days        = $default_crl_days
+	crl_extensions          = crl_ext
+
+	EOF
+}
+
+function config_ca_section_ext()
+{
+	rootmaster=""
+	network=""
+	identity=""
+	component=""
+	ident=""
+	
+	case $1 in
+		root-ca)
+			ident="root_ca"
+			rootmaster="1"
+		;;
+		master-ca)
+			ident="master_ca"
+			rootmaster="1"
+		;;
+		network-ca)
+			ident="network_ca"
+			network="1"
+		;;
+		identity-ca)
+			ident="identity_ca"
+			identity="1"
+		;;
+		component-ca)
+			ident="component_ca"
+			component="1"
+		;;
+		*)
+			error 11 "Unknown CA for ext section"
+		;;
+	esac
+	
+	[ "$rootmaster" = "1" ] && cat <<-EOF
+	[ ${ident}_ext ]
+	keyUsage                = critical,keyCertSign,cRLSign
+	basicConstraints        = critical,CA:true
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+
+	[ intermediate_ca_ext ]
+	keyUsage                = critical,keyCertSign,cRLSign
+	basicConstraints        = critical,CA:true
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList
+
+	EOF
+	
+	[ "$network" = "1" ] && cat <<-EOF
+	[ intermediate_ca_ext ]
+	keyUsage                = critical,keyCertSign,cRLSign
+	basicConstraints        = critical,CA:true
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList
+	
+	[ signing_ca_ext ]
+	keyUsage                = critical,keyCertSign,cRLSign
+	basicConstraints        = critical,CA:true,pathlen:0
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList
+		
+	EOF
+	
+	[ "$identity" = "1" ] && cat <<-EOF
+	[ identity_ext ]
+	keyUsage                = critical,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = emailProtection,clientAuth,msSmartcardLogin
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList
+	
+	[ encryption_ext ]
+	keyUsage                = critical,keyEncipherment
+	basicConstraints        = CA:false
+	extendedKeyUsage        = emailProtection,msEFS
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList
+	
+	EOF
+	
+	[ "$component" = "1" ] && cat <<-EOF
+	[ server_ext ]
+	keyUsage                = critical,digitalSignature,keyEncipherment
+	basicConstraints        = CA:false
+	extendedKeyUsage        = serverAuth,clientAuth
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @ocsp_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCADevice,perfectCATrustList
+	
+	[ client_ext ]
+	keyUsage                = critical,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = clientAuth
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @ocsp_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCADevice,perfectCATrustList
+	
+	[ timestamp_ext ]
+	keyUsage                = critical,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = critical,timeStamping
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCADevice,perfectCATrustList
+	
+	[ ocspsign_ext ]
+	keyUsage                = critical,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = critical,OCSPSigning
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	noCheck                 = null
+	certificatePolicies     = perfectCADevice,perfectCATrustList
+
+	EOF
+}
+
+function config_ca_tmpl_ocspsign()
+{
+	cat <<-EOF
+	[ req ]
+	default_bits            = $PCA_OCSPSIGN_BITS
+	encrypt_key             = no
+	default_md              = $PCA_OCSPSIGN_MD
+	utf8                    = yes
+	string_mask             = utf8only
+	prompt                  = yes
+	distinguished_name      = ocspsign_dn
+	req_extensions          = ocspsign_reqext
+
+	[ ocspsign_dn ]
+	countryName             = "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         = 2
+	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
+	localityName            = "3. Locality Name            (eg, city)     "
+	organizationName        = "4. Organization Name        (eg, company)  "
+	organizationalUnitName  = "5. Organizational Unit Name (eg, section)  "
+	commonName              = "6. Common Name              (eg, full name)"
+	commonName_max          = 64
+
+	[ ocspsign_reqext ]
+	keyUsage                = critical,digitalSignature
+	extendedKeyUsage        = critical,OCSPSigning
+	subjectKeyIdentifier    = hash
+	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+
+	EOF
+}
+
+function config_ca_tmpl_identity()
+{
+	cat <<-EOF
+	[ req ]
+	default_bits            = $PCA_IDENTITY_BITS
+	encrypt_key             = yes
+	default_md              = $PCA_IDENTITY_MD
+	utf8                    = yes
+	string_mask             = utf8only
+	prompt                  = yes
+	distinguished_name      = identity_dn
+	req_extensions          = identity_reqext
+	
+	[ identity_dn ]
+	countryName             = "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         = 2
+	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
+	localityName            = "3. Locality Name            (eg, city)     "
+	postalCode              = "4. Postal code              (eg, 12345)    "
+	postalCode_max          = 5
+	streetAddress           = "5. Street address           (eg, street)   "
+	organizationName        = "6. Organization Name        (eg, company)  "
+	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
+	commonName              = "8. Common Name              (eg, full name)"
+	commonName_max          = 64
+	owner                   = "8. Owner                    (eg, name)     "
+	emailAddress            = "10. Email Address           (eg, name@fqdn)"
+	emailAddress_max        = 40
+	jurisdictionOfIncorporationLocalityName         = "11. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationStateOrProvinceName  = "12. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationCountryName          = "13. Inc. Country                  (eg, DE)  "
+	
+	[ identity_reqext ]
+	keyUsage                = critical,digitalSignature
+	extendedKeyUsage        = emailProtection,clientAuth
+	subjectKeyIdentifier    = hash
+	subjectAltName          = email:move
+	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+
+	EOF
+}
+
+function config_ca_tmpl_timestamp()
+{
+	cat <<-EOF
+	[ req ]
+	default_bits            = $PCA_TIMESTAMP_BITS
+	encrypt_key             = no
+	default_md              = $PCA_TIMESTAMP_MD
+	utf8                    = yes
+	string_mask             = utf8only
+	prompt                  = yes
+	distinguished_name      = timestamp_dn
+	req_extensions          = timestamp_reqext
+	
+	[ timestamp_dn ]
+	countryName             = "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         = 2
+	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
+	localityName            = "3. Locality Name            (eg, city)     "
+	postalCode              = "4. Postal code              (eg, 12345)    "
+	postalCode_max          = 5
+	streetAddress           = "5. Street address           (eg, street)   "
+	organizationName        = "6. Organization Name        (eg, company)  "
+	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
+	owner                   = "8. Owner                    (eg, name)     "
+	commonName              = "9. Common Name              (eg, full name)"
+	commonName_max          = 64
+	jurisdictionOfIncorporationLocalityName         = "10. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationStateOrProvinceName  = "11. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationCountryName          = "12. Inc. Country                  (eg, DE)  "
+	
+	[ timestamp_reqext ]
+	keyUsage                = critical,digitalSignature
+	extendedKeyUsage        = critical,timeStamping
+	subjectKeyIdentifier    = hash
+	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	
+	EOF
+}
+
+function config_ca_tmpl_encryption()
+{
+	cat <<-EOF
+	[ req ]
+	default_bits            = $PCA_ENCRYPTION_BITS
+	encrypt_key             = yes
+	default_md              = $PCA_ENCRYPTION_MD
+	utf8                    = yes
+	string_mask             = utf8only
+	prompt                  = yes
+	distinguished_name      = encryption_dn
+	req_extensions          = encryption_reqext
+	
+	[ encryption_dn ]
+	countryName             = "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         = 2
+	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
+	localityName            = "3. Locality Name            (eg, city)     "
+	postalCode              = "4. Postal code              (eg, 12345)    "
+	postalCode_max          = 5
+	streetAddress           = "5. Street address           (eg, street)   "
+	organizationName        = "6. Organization Name        (eg, company)  "
+	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
+	owner                   = "8. Owner                    (eg, name)     "
+	commonName              = "9. Common Name              (eg, full name)"
+	commonName_max          = 64
+	emailAddress            = "10. Email Address           (eg, name@fqdn)"
+	emailAddress_max        = 40
+	jurisdictionOfIncorporationLocalityName         = "11. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationStateOrProvinceName  = "12. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationCountryName          = "13. Inc. Country                  (eg, DE)  "
+	
+	[ encryption_reqext ]
+	keyUsage                = critical,keyEncipherment
+	extendedKeyUsage        = emailProtection
+	subjectKeyIdentifier    = hash
+	subjectAltName          = email:move
+	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+
+	EOF
+}
+
+function config_ca_tmpl_server()
+{
+	cat <<-EOF
+	[ default ]
+	SAN                     = DNS:$PCA_SERVER_SAN_DNS
+	
+	[ req ]
+	default_bits            = $PCA_SERVER_BITS
+	encrypt_key             = no
+	default_md              = $PCA_SERVER_MD
+	utf8                    = yes
+	string_mask             = utf8only
+	prompt                  = yes
+	distinguished_name      = server_dn
+	req_extensions          = server_reqext
+	
+	[ server_dn ]
+	countryName             = "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         = 2
+	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
+	localityName            = "3. Locality Name            (eg, city)     "
+	postalCode              = "4. Postal code              (eg, 12345)    "
+	postalCode_max          = 5
+	streetAddress           = "5. Street address           (eg, street)   "
+	organizationName        = "6. Organization Name        (eg, company)  "
+	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
+	owner                   = "8. Owner                    (eg, name)     "
+	commonName              = "9. Common Name              (eg, FQDN)     "
+	commonName_max          = 64
+	businessCategory        = "10. Business Category       (eg, private)  "
+	jurisdictionOfIncorporationLocalityName         = "11. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationStateOrProvinceName  = "12. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationCountryName          = "13. Inc. Country                  (eg, DE)  "
+	
+	[ server_reqext ]
+	keyUsage                = critical,digitalSignature,keyEncipherment
+	extendedKeyUsage        = serverAuth,clientAuth
+	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	subjectKeyIdentifier    = hash
+	subjectAltName          = \$ENV::SAN
+
+	EOF
+}
+
+function config_ca_tmpl_client()
+{
+	cat <<-EOF
+	[ req ]
+	default_bits            = $PCA_CLIENT_BITS
+	encrypt_key             = no
+	default_md              = $PCA_CLIENT_MD
+	utf8                    = yes
+	string_mask             = utf8only
+	prompt                  = yes
+	distinguished_name      = client_dn
+	req_extensions          = client_reqext
+	
+	[ client_dn ]
+	countryName             = "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         = 2
+	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
+	localityName            = "3. Locality Name            (eg, city)     "
+	postalCode              = "4. Postal code              (eg, 12345)    "
+	postalCode_max          = 5
+	streetAddress           = "5. Street address           (eg, street)   "
+	organizationName        = "6. Organization Name        (eg, company)  "
+	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
+	owner                   = "8. Owner                    (eg, name)     "
+	commonName              = "9. Common Name              (eg, full name)"
+	commonName_max          = 64
+	jurisdictionOfIncorporationLocalityName         = "10. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationStateOrProvinceName  = "11. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationCountryName          = "12. Inc. Country                  (eg, DE)  "
+	
+	[ client_reqext ]
+	keyUsage                = critical,digitalSignature
+	extendedKeyUsage        = clientAuth
+	subjectKeyIdentifier    = hash
+	welterTrustList         = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+
+	EOF
+}
+
+function configuration_write()
+{
+	for ca in root-ca master-ca component-ca network-ca identity-ca; do
+		config_file="$PCA_BASE_PATH/conf/$ca.conf"
+		config_header root-ca > $config_file || return 1
+		config_ca_section_default root-ca >> $config_file 
+		config_ca_section_req root-ca >> $config_file
+		config_ca_section_dn root-ca >> $config_file
+		config_ca_section_reqext root-ca >> $config_file
+		config_ca_section_crl_info root-ca >> $config_file
+		config_ca_section_policies root-ca >> $config_file
+		config_ca_section_operational root-ca >> $config_file
+		config_ca_section_ext root-ca >> $config_file
+		chmod 750 $config_file >/dev/null 2>&1
+	done
+	
+	config_header "OCSP-Signing template" > $PCA_BASE_PATH/conf/ocspsign.conf || return 2
+	config_ca_tmpl_ocspsign >> $PCA_BASE_PATH/conf/ocspsign.conf
+	chmod 750 $PCA_BASE_PATH/conf/ocspsign.conf >/dev/null 2>&1
+
+	config_header "Identity template" > $PCA_BASE_PATH/conf/identity.conf || return 2
+	config_ca_tmpl_identity >> $PCA_BASE_PATH/conf/identity.conf
+	chmod 750 $PCA_BASE_PATH/conf/identity.conf >/dev/null 2>&1
+
+	config_header "Timestamp template" > $PCA_BASE_PATH/conf/timestamp.conf || return 2
+	config_ca_tmpl_timestamp >> $PCA_BASE_PATH/conf/timestamp.conf
+	chmod 750 $PCA_BASE_PATH/conf/timestamp.conf >/dev/null 2>&1
+
+	config_header "Encryption template" > $PCA_BASE_PATH/conf/encryption.conf || return 2
+	config_ca_tmpl_encryption >> $PCA_BASE_PATH/conf/encryption.conf
+	chmod 750 $PCA_BASE_PATH/conf/encryption.conf >/dev/null 2>&1
+
+	config_header "Server template" > $PCA_BASE_PATH/conf/server.conf || return 2
+	config_ca_tmpl_server >> $PCA_BASE_PATH/conf/server.conf
+	chmod 750 $PCA_BASE_PATH/conf/server.conf >/dev/null 2>&1
+
+	config_header "Client template" > $PCA_BASE_PATH/conf/client.conf || return 2
+	config_ca_tmpl_client >> $PCA_BASE_PATH/conf/client.conf
+	chmod 750 $PCA_BASE_PATH/conf/client.conf >/dev/null 2>&1
+}
+
+# END CONFIGURATION WRITE
+##########################
+
+##########################
+# CLI ARGUMENTS
+
+PCA_OPMODE=""
+PCA_OVERWRITE=""
+
+cat <<EOF
+
+ [0;1;31;91mm[0;1;33;93mmm[0;1;32;92mmm[0m                  [0;1;31;91mm"[0;1;33;93m"[0m                  [0;1;34;94mm[0m             [0;1;35;95mm[0;1;31;91mmm[0m    [0;1;36;96mmm[0m  
+ [0;1;33;93m#[0m   [0;1;36;96m"[0;1;34;94m#[0m  [0;1;35;95mm[0;1;31;91mmm[0m    [0;1;36;96mm[0m [0;1;34;94mmm[0m  [0;1;31;91mmm[0;1;33;93m#m[0;1;32;92mm[0m   [0;1;34;94mmm[0;1;35;95mm[0m    [0;1;33;93mm[0;1;32;92mmm[0m   [0;1;34;94mm[0;1;35;95mm#[0;1;31;91mmm[0m         [0;1;35;95mm[0;1;31;91m"[0m   [0;1;32;92m"[0m   [0;1;34;94m##[0m  
+ [0;1;32;92m#[0;1;36;96mmm[0;1;34;94mm#[0;1;35;95m"[0m [0;1;31;91m#"[0m  [0;1;32;92m#[0m   [0;1;34;94m#"[0m  [0;1;31;91m"[0m   [0;1;32;92m#[0m    [0;1;34;94m#[0;1;35;95m"[0m  [0;1;31;91m#[0m  [0;1;32;92m#"[0m  [0;1;34;94m"[0m    [0;1;31;91m#[0m           [0;1;31;91m#[0m       [0;1;34;94m#[0m  [0;1;31;91m#[0m 
+ [0;1;36;96m#[0m      [0;1;33;93m#"[0;1;32;92m""[0;1;36;96m"[0m   [0;1;35;95m#[0m       [0;1;36;96m#[0m    [0;1;35;95m#[0;1;31;91m""[0;1;33;93m""[0m  [0;1;36;96m#[0m        [0;1;33;93m#[0m     [0;1;34;94m"[0;1;35;95m""[0m   [0;1;33;93m#[0m       [0;1;35;95m#[0;1;31;91mmm[0;1;33;93m#[0m 
+ [0;1;34;94m#[0m      [0;1;32;92m"#[0;1;36;96mmm[0;1;34;94m"[0m   [0;1;31;91m#[0m       [0;1;34;94m#[0m    [0;1;31;91m"[0;1;33;93m#m[0;1;32;92mm"[0m  [0;1;34;94m"#[0;1;35;95mmm[0;1;31;91m"[0m    [0;1;32;92m"[0;1;36;96mmm[0m          [0;1;36;96m"m[0;1;34;94mmm[0;1;35;95m"[0m [0;1;31;91m#[0m    [0;1;32;92m#[0m
+
+ [0;1;34;94mCopyright (c) 2018 [0;1;32;92mOliver Welter[0;1;34;94m <[0;1;36;96moliver@welter.rocks[0;1;34;94m>[0m
+ [0;1;34;94mSee [0;1;32;93mhttps://github.com/VerboteneZone/perfect-ca[0;1;34;94m for details.[0m
+
+ [0;1;34;94mThis program comes with ABSOLUTELY NO WARRANTY, licensed under GPLv3.[0m
+ [0;1;34;94mThis is free software, and you are welcome to redistribute it[0m
+ [0;1;34;94munder certain conditions; type '[0;1;31;91m$0 --license[0;1;34;94m' for details.[0m
+
+EOF
+
+for arg in $*; do
+	case $1 in
+		--setup)
+			PCA_OPMODE="setup"
+		;;
+		--overwrite)
+			PCA_OVERWRITE="yes"
+		;;
+	esac
+	
+	shift
+done
+
+# END CLI ARGUMENTS
+##########################
+
+##########################
+# OPMODE: SETUP
+
+if [ "$OPMODE" = "SETUP" ]; then
+	if [ "$PCA_OVERWRITE" = "" ]; then
+		[ -d "$PCA_BASE_PATH/ca/$PCA_ROOTCA_RELATIVE_PATH" ] && error 2 "Root CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/$PCA_MASTERCA_RELATIVE_PATH" ] && error 2 "Master CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/$PCA_COMPONENTCA_RELATIVE_PATH" ] && error 2 "Component CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/$PCA_NETWORKCA_RELATIVE_PATH" ] && error 2 "Network CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/$PCA_IDENTITYCA_RELATIVE_PATH" ] && error 2 "Identity CA path exists"
+	fi
+	
+	echo -n "[0;1;34;94mSetting up Perfect-CA...[0m"
+	
+	rm -rf $PCA_BASE_PATH/ca/{crl,certs,conf} >/dev/null 2>&1
+	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf} >/dev/null 2>&1
+	chmod 775 $PCA_BASE_PATH/ca/{crl,certs} >/dev/null 2>&1
+	chmod 770 $PCA_BASE_PATH/ca/conf >/dev/null 2>&1	
+	
+	for pth in $PCA_ROOTCA_RELATIVE_PATH $PCA_MASTERCA_RELATIVE_PATH $PCA_COMPONENTCA_RELATIVE_PATH $PCA_NETWORKCA_RELATIVE_PATH $PCA_IDENTITYCA_RELATIVE_PATH; do
+		rm -rf $PCA_BASE_PATH/ca/$pth >/dev/null 2>&1
+		mkdir -p $PCA_BASE_PATH/ca/$pth/{private,db} >/dev/null 2>&1
+		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/ca.db >/dev/null 2>&1
+		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/ca.db.attr >/dev/null 2>&1
+		echo "01" > $PCA_BASE_PATH/ca/$pth/db/ca.crt.srl >/dev/null 2>&1
+		echo "01" > $PCA_BASE_PATH/ca/$pth/db/ca.crl.srl >/dev/null 2>&1
+		chmod -R 700 $PCA_BASE_PATH/ca/$pth/private >/dev/null 2>&1
+		chmod -R 775 $PCA_BASE_PATH/ca/$pth/db >/dev/null 2>&1
+	done
+	
+	configuration_write && echo $OK || echo $FAILED
+	
+fi
+                                                                      
