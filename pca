@@ -45,6 +45,7 @@ PCA_DN_STREETADDRESS="Burgweg 9"
 PCA_DN_POSTALCODE="34630"
 PCA_DN_OWNER="Oliver Welter"
 PCA_DN_ORGANIZATIONNAME="Welter"
+PCA_DN_BUSINESSCATEGORY="private"
 
 PCA_ROOTCA_BITS="4096"
 PCA_ROOTCA_MD="sha256"
@@ -643,31 +644,52 @@ function config_ca_section_ext()
 function config_ca_tmpl_ocspsign()
 {
 	cat <<-EOF
+	[ default ]
+	openssl_conf			= openssl_init
+	
+	[ openssl_init ]
+	oid_section     	        = include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+
 	[ req ]
-	default_bits            = $PCA_OCSPSIGN_BITS
-	encrypt_key             = no
-	default_md              = $PCA_OCSPSIGN_MD
-	utf8                    = yes
-	string_mask             = utf8only
-	prompt                  = yes
-	distinguished_name      = ocspsign_dn
-	req_extensions          = ocspsign_reqext
+	default_bits            	= $PCA_OCSPSIGN_BITS
+	encrypt_key             	= no
+	default_md              	= $PCA_OCSPSIGN_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= ocspsign_dn
+	req_extensions          	= ocspsign_reqext
 
 	[ ocspsign_dn ]
-	countryName             = "1. Country Name (2 letters) (eg, US)       "
-	countryName_max         = 2
-	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
-	localityName            = "3. Locality Name            (eg, city)     "
-	organizationName        = "4. Organization Name        (eg, company)  "
-	organizationalUnitName  = "5. Organizational Unit Name (eg, section)  "
-	commonName              = "6. Common Name              (eg, full name)"
-	commonName_max          = 64
+	countryName    		        = "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default 	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_COMPONENTCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	commonName              	= "9. Common Name              (eg, full name)"
+	commonName_max          	= 64
 
 	[ ocspsign_reqext ]
-	keyUsage                = critical,digitalSignature
-	extendedKeyUsage        = critical,OCSPSigning
-	subjectKeyIdentifier    = hash
-	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	keyUsage                	= critical,digitalSignature
+	extendedKeyUsage        	= critical,OCSPSigning
+	subjectKeyIdentifier    	= hash
+	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
 
 	EOF
 }
@@ -675,34 +697,56 @@ function config_ca_tmpl_ocspsign()
 function config_ca_tmpl_identity()
 {
 	cat <<-EOF
+	[ default ]
+	openssl_conf			= openssl_init
+	
+	[ openssl_init ]
+	oid_section             	= include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+
 	[ req ]
-	default_bits            = $PCA_IDENTITY_BITS
-	encrypt_key             = yes
-	default_md              = $PCA_IDENTITY_MD
-	utf8                    = yes
-	string_mask             = utf8only
-	prompt                  = yes
-	distinguished_name      = identity_dn
-	req_extensions          = identity_reqext
+	default_bits            	= $PCA_IDENTITY_BITS
+	encrypt_key             	= yes
+	default_md              	= $PCA_IDENTITY_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= identity_dn
+	req_extensions          	= identity_reqext
 	
 	[ identity_dn ]
-	countryName             = "1. Country Name (2 letters) (eg, US)       "
-	countryName_max         = 2
-	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
-	localityName            = "3. Locality Name            (eg, city)     "
-	postalCode              = "4. Postal code              (eg, 12345)    "
-	postalCode_max          = 5
-	streetAddress           = "5. Street address           (eg, street)   "
-	organizationName        = "6. Organization Name        (eg, company)  "
-	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
-	commonName              = "8. Common Name              (eg, full name)"
-	commonName_max          = 64
-	owner                   = "8. Owner                    (eg, name)     "
-	emailAddress            = "10. Email Address           (eg, name@fqdn)"
-	emailAddress_max        = 40
-	jurisdictionOfIncorporationLocalityName         = "11. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationStateOrProvinceName  = "12. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationCountryName          = "13. Inc. Country                  (eg, DE)  "
+	countryName             	= "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_IDENTITYCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	commonName              	= "9. Common Name              (eg, full name)"
+	commonName_max          	= 64
+	emailAddress            	= "10. Email Address           (eg, name@fqdn)"
+	emailAddress_max        	= 40
+	businessCategory        				= "11. Business Category       (eg, private)  "
+	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionOfIncorporationLocalityName         	= "12. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
+	jurisdictionOfIncorporationStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionOfIncorporationCountryName          	= "14. Inc. Country                  (eg, DE)  "
+	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ identity_reqext ]
 	keyUsage                = critical,digitalSignature
@@ -717,38 +761,60 @@ function config_ca_tmpl_identity()
 function config_ca_tmpl_timestamp()
 {
 	cat <<-EOF
+	[ default ]
+	openssl_conf			= openssl_init
+	
+	[ openssl_init ]
+	oid_section             	= include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+
 	[ req ]
-	default_bits            = $PCA_TIMESTAMP_BITS
-	encrypt_key             = no
-	default_md              = $PCA_TIMESTAMP_MD
-	utf8                    = yes
-	string_mask             = utf8only
-	prompt                  = yes
-	distinguished_name      = timestamp_dn
-	req_extensions          = timestamp_reqext
+	default_bits            	= $PCA_TIMESTAMP_BITS
+	encrypt_key             	= no
+	default_md              	= $PCA_TIMESTAMP_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= timestamp_dn
+	req_extensions          	= timestamp_reqext
 	
 	[ timestamp_dn ]
-	countryName             = "1. Country Name (2 letters) (eg, US)       "
-	countryName_max         = 2
-	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
-	localityName            = "3. Locality Name            (eg, city)     "
-	postalCode              = "4. Postal code              (eg, 12345)    "
-	postalCode_max          = 5
-	streetAddress           = "5. Street address           (eg, street)   "
-	organizationName        = "6. Organization Name        (eg, company)  "
-	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
-	owner                   = "8. Owner                    (eg, name)     "
-	commonName              = "9. Common Name              (eg, full name)"
-	commonName_max          = 64
-	jurisdictionOfIncorporationLocalityName         = "10. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationStateOrProvinceName  = "11. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationCountryName          = "12. Inc. Country                  (eg, DE)  "
+	countryName             	= "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_IDENTITYCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	commonName              	= "9. Common Name              (eg, full name)"
+	commonName_max          	= 64
+	businessCategory        				= "10. Business Category       (eg, private)  "
+	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionOfIncorporationLocalityName         	= "11. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
+	jurisdictionOfIncorporationStateOrProvinceName  	= "12. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionOfIncorporationCountryName          	= "13. Inc. Country                  (eg, DE)  "
+	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ timestamp_reqext ]
-	keyUsage                = critical,digitalSignature
-	extendedKeyUsage        = critical,timeStamping
-	subjectKeyIdentifier    = hash
-	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	keyUsage                	= critical,digitalSignature
+	extendedKeyUsage        	= critical,timeStamping
+	subjectKeyIdentifier    	= hash
+	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
 	
 	EOF
 }
@@ -756,41 +822,63 @@ function config_ca_tmpl_timestamp()
 function config_ca_tmpl_encryption()
 {
 	cat <<-EOF
+	[ default ]
+	openssl_conf			= openssl_init
+	
+	[ openssl_init ]
+	oid_section             	= include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+
 	[ req ]
-	default_bits            = $PCA_ENCRYPTION_BITS
-	encrypt_key             = yes
-	default_md              = $PCA_ENCRYPTION_MD
-	utf8                    = yes
-	string_mask             = utf8only
-	prompt                  = yes
-	distinguished_name      = encryption_dn
-	req_extensions          = encryption_reqext
+	default_bits            	= $PCA_ENCRYPTION_BITS
+	encrypt_key             	= yes
+	default_md              	= $PCA_ENCRYPTION_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= encryption_dn
+	req_extensions          	= encryption_reqext
 	
 	[ encryption_dn ]
-	countryName             = "1. Country Name (2 letters) (eg, US)       "
-	countryName_max         = 2
-	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
-	localityName            = "3. Locality Name            (eg, city)     "
-	postalCode              = "4. Postal code              (eg, 12345)    "
-	postalCode_max          = 5
-	streetAddress           = "5. Street address           (eg, street)   "
-	organizationName        = "6. Organization Name        (eg, company)  "
-	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
-	owner                   = "8. Owner                    (eg, name)     "
-	commonName              = "9. Common Name              (eg, full name)"
-	commonName_max          = 64
-	emailAddress            = "10. Email Address           (eg, name@fqdn)"
-	emailAddress_max        = 40
-	jurisdictionOfIncorporationLocalityName         = "11. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationStateOrProvinceName  = "12. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationCountryName          = "13. Inc. Country                  (eg, DE)  "
+	countryName             	= "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_IDENTITYCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	commonName              	= "9. Common Name              (eg, full name)"
+	commonName_max          	= 64
+	emailAddress            	= "10. Email Address           (eg, name@fqdn)"
+	emailAddress_max        	= 40
+	businessCategory        				= "11. Business Category       (eg, private)  "
+	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionOfIncorporationLocalityName         	= "12. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
+	jurisdictionOfIncorporationStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionOfIncorporationCountryName          	= "14. Inc. Country                  (eg, DE)  "
+	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ encryption_reqext ]
-	keyUsage                = critical,keyEncipherment
-	extendedKeyUsage        = emailProtection
-	subjectKeyIdentifier    = hash
-	subjectAltName          = email:move
-	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	keyUsage                	= critical,keyEncipherment
+	extendedKeyUsage        	= emailProtection
+	subjectKeyIdentifier    	= hash
+	subjectAltName          	= email:move
+	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
 
 	EOF
 }
@@ -799,42 +887,61 @@ function config_ca_tmpl_server()
 {
 	cat <<-EOF
 	[ default ]
-	SAN                     = DNS:$PCA_SERVER_SAN_DNS
+	SAN                     	= DNS:$PCA_SERVER_SAN_DNS
+	openssl_conf			= openssl_init
 	
+	[ openssl_init ]
+	oid_section             	= include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+
 	[ req ]
-	default_bits            = $PCA_SERVER_BITS
-	encrypt_key             = no
-	default_md              = $PCA_SERVER_MD
-	utf8                    = yes
-	string_mask             = utf8only
-	prompt                  = yes
-	distinguished_name      = server_dn
-	req_extensions          = server_reqext
+	default_bits            	= $PCA_SERVER_BITS
+	encrypt_key             	= no
+	default_md              	= $PCA_SERVER_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= server_dn
+	req_extensions          	= server_reqext
 	
 	[ server_dn ]
-	countryName             = "1. Country Name (2 letters) (eg, US)       "
-	countryName_max         = 2
-	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
-	localityName            = "3. Locality Name            (eg, city)     "
-	postalCode              = "4. Postal code              (eg, 12345)    "
-	postalCode_max          = 5
-	streetAddress           = "5. Street address           (eg, street)   "
-	organizationName        = "6. Organization Name        (eg, company)  "
-	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
-	owner                   = "8. Owner                    (eg, name)     "
-	commonName              = "9. Common Name              (eg, FQDN)     "
-	commonName_max          = 64
-	businessCategory        = "10. Business Category       (eg, private)  "
-	jurisdictionOfIncorporationLocalityName         = "11. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationStateOrProvinceName  = "12. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationCountryName          = "13. Inc. Country                  (eg, DE)  "
+	countryName             	= "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_IDENTITYCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	commonName              	= "9. Common Name              (eg, full name)"
+	commonName_max          	= 64
+	businessCategory        				= "10. Business Category       (eg, private)  "
+	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionOfIncorporationLocalityName         	= "11. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
+	jurisdictionOfIncorporationStateOrProvinceName  	= "12. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionOfIncorporationCountryName          	= "13. Inc. Country                  (eg, DE)  "
+	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ server_reqext ]
-	keyUsage                = critical,digitalSignature,keyEncipherment
-	extendedKeyUsage        = serverAuth,clientAuth
-	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
-	subjectKeyIdentifier    = hash
-	subjectAltName          = \$ENV::SAN
+	keyUsage                	= critical,digitalSignature,keyEncipherment
+	extendedKeyUsage        	= serverAuth,clientAuth
+	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	subjectKeyIdentifier    	= hash
+	subjectAltName          	= \$ENV::SAN
 
 	EOF
 }
@@ -842,38 +949,60 @@ function config_ca_tmpl_server()
 function config_ca_tmpl_client()
 {
 	cat <<-EOF
+	[ default ]
+	openssl_conf			= openssl_init
+	
+	[ openssl_init ]
+	oid_section             	= include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+
 	[ req ]
-	default_bits            = $PCA_CLIENT_BITS
-	encrypt_key             = no
-	default_md              = $PCA_CLIENT_MD
-	utf8                    = yes
-	string_mask             = utf8only
-	prompt                  = yes
-	distinguished_name      = client_dn
-	req_extensions          = client_reqext
+	default_bits            	= $PCA_CLIENT_BITS
+	encrypt_key             	= no
+	default_md              	= $PCA_CLIENT_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= client_dn
+	req_extensions          	= client_reqext
 	
 	[ client_dn ]
-	countryName             = "1. Country Name (2 letters) (eg, US)       "
-	countryName_max         = 2
-	stateOrProvinceName     = "2. State or Province Name   (eg, region)   "
-	localityName            = "3. Locality Name            (eg, city)     "
-	postalCode              = "4. Postal code              (eg, 12345)    "
-	postalCode_max          = 5
-	streetAddress           = "5. Street address           (eg, street)   "
-	organizationName        = "6. Organization Name        (eg, company)  "
-	organizationalUnitName  = "7. Organizational Unit Name (eg, section)  "
-	owner                   = "8. Owner                    (eg, name)     "
-	commonName              = "9. Common Name              (eg, full name)"
-	commonName_max          = 64
-	jurisdictionOfIncorporationLocalityName         = "10. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationStateOrProvinceName  = "11. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationCountryName          = "12. Inc. Country                  (eg, DE)  "
+	countryName             	= "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_IDENTITYCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	commonName              	= "9. Common Name              (eg, full name)"
+	commonName_max          	= 64
+	businessCategory        				= "10. Business Category       (eg, private)  "
+	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionOfIncorporationLocalityName         	= "11. Inc. Locality Name            (eg, city)"
+	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
+	jurisdictionOfIncorporationStateOrProvinceName  	= "12. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionOfIncorporationCountryName          	= "13. Inc. Country                  (eg, DE)  "
+	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ client_reqext ]
-	keyUsage                = critical,digitalSignature
-	extendedKeyUsage        = clientAuth
-	subjectKeyIdentifier    = hash
-	welterTrustList         = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	keyUsage                	= critical,digitalSignature
+	extendedKeyUsage        	= clientAuth
+	subjectKeyIdentifier    	= hash
+	welterTrustList         	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
 
 	EOF
 }
@@ -961,8 +1090,10 @@ function help_context()
 # CLI ARGUMENTS
 
 PCA_OPMODE=""
+PCA_USE_CONFIG=""
 PCA_OVERWRITE=""
 PCA_SELECTED_CA="component-ca"
+PCA_FILENAME=""
 
 cat <<EOF
 
@@ -1002,6 +1133,31 @@ for arg in $*; do
 		;;
 		--update-crl)
 		 	PCA_OPMODE="update-crl"
+		;;
+		--create-request)
+			PCA_OPMODE="create-request"
+		;;
+		--filename)
+			PCA_FILENAME="$2"
+			shift
+		;;
+		--identity)
+			PCA_USE_CONFIG="identity"
+		;;
+		--server)
+			PCA_USE_CONFIG="server"
+		;;
+		--client)
+			PCA_USE_CONFIG="client"
+		;;
+		--timestamp)
+			PCA_USE_CONFIG="timestamp"
+		;;
+		--encryption)
+			PCA_USE_CONFIG="encryption"
+		;;
+		--ocspsign)
+			PCA_USE_CONFIG="ocspsign"
 		;;
 		--encrypt-private)
 		 	PCA_OPMODE="encrypt-private"
@@ -1059,6 +1215,10 @@ for arg in $*; do
 		;;
 		--dn-organizationname)
 			PCA_DN_ORGANIZATIONNAME="$2"
+			shift
+		;;
+		--dn-businesscategory)
+			PCA_DN_BUSINESSCATEGORY="$2"
 			shift
 		;;
 		--root-ca-bits)
@@ -1307,6 +1467,8 @@ if [ "$PCA_OPMODE" = "encrypt-private" ]; then
 			error 7 "Unknown or invalid CA selected"
 		;;
 	esac
+	
+	exit
 fi
 
 # END OPMODE: ENCRYPT-P...
@@ -1325,6 +1487,8 @@ if [ "$PCA_OPMODE" = "decrypt-private" ]; then
 			error 7 "Unknown or invalid CA selected"
 		;;
 	esac
+	
+	exit
 fi
 
 # END OPMODE: DECRYPT-P...
@@ -1344,9 +1508,10 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	
 	echo -n "[0;1;34;94mSetting up Perfect-CA paths and configs...[0m"
 	
-	rm -rf $PCA_BASE_PATH/ca/{crl,certs,conf,requests} >/dev/null 2>&1
-	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf,requests} >/dev/null 2>&1
-	chmod 775 $PCA_BASE_PATH/ca/{crl,certs,conf,requests} >/dev/null 2>&1
+	rm -rf $PCA_BASE_PATH/ca/{crl,certs,conf,requests,private} >/dev/null 2>&1
+	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf,requests,private} >/dev/null 2>&1
+	chmod 775 $PCA_BASE_PATH/ca/{crl,certs,requests} >/dev/null 2>&1
+	chmod 770 $PCA_BASE_PATH/ca/{conf,private} >/dev/null 2>&1
 	
 	for pth in root-ca master-ca component-ca network-ca identity-ca; do
 		rm -rf $PCA_BASE_PATH/ca/$pth >/dev/null 2>&1
@@ -1446,5 +1611,33 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	echo -e "[0;1;34;94mfrom $PCA_BASE_PATH/ca/root-ca/private/root-ca.key[0m"
 	echo -e "[0;1;34;94mand safely delete it (eg, with shred),[0m"
 	echo -e "[0;1;34;94mas this is your offline root CA's key.[0m"
+	
+	exit
 fi
                                                                       
+# END OPMODE: SETUP
+##########################
+
+##########################
+# OPMODE: CREATE-REQUEST
+
+if [ "$PCA_OPMODE" = "create-request" ]; then
+	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
+	
+	config=""
+	
+	case $PCA_USE_CONFIG in
+		identity|server|client|timestamp|encryption|ocspsign)
+			config="$PCA_BASE_PATH/ca/conf/$PCA_USE_CONFIG.conf"
+		;;
+		*)
+			error 8 "Invalid configuration type requested"
+		;;
+	esac
+	
+	$PCA_OPENSSL req -new \
+		-config $config \
+		-out $PCA_BASE_PATH/ca/requests/$PCA_FILENAME.csr \
+		-keyout $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key
+	exit
+fi
