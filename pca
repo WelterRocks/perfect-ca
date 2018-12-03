@@ -933,14 +933,22 @@ function help_context()
 	# Help context:                                                              #
 	# =============                                                              #
 	#                                                                            #
-	# --help                           Show this help                            #
-	# --license                        Show license                              #
+	# --help                           Show this help context.                   #
+	# --license                        Show license information.                 #
 	#                                                                            #
-	# --setup                          Setup new Certificate Authorities         #
-	# --overwrite                      Overwrite existing CA configuration       #
+	# --setup                          Setup new Certificate Authorities.        #
+	# --overwrite                      Overwrite existing CA configuration.      #
 	#                                                                            #
-	# --update                         Check for updates on GitHub               #
-	# --install                        Install available updates from GitHub     #
+	# --update                         Check for updates on GitHub.              #
+	# --install                        Install available updates from GitHub.    #
+	#                                                                            #
+	# --select-ca [CA]                 Select a specified CA from:               #
+	#                                  root-ca, master-ca, network-ca,           #
+	#                                  component-ca (default) or identity-ca     #
+	#                                                                            #
+	# --update-crl                     Update CRL of a selected CA.              #
+	# --encrypt-private                Encrypt the private key of selected CA.   #
+	# --decrypt-private                Decrypt the private key of selected CA.   #
 	#                                                                            #
 	##############################################################################	
 	EOF
@@ -954,6 +962,7 @@ function help_context()
 
 PCA_OPMODE=""
 PCA_OVERWRITE=""
+PCA_SELECTED_CA="component-ca"
 
 cat <<EOF
 
@@ -986,6 +995,19 @@ for arg in $*; do
 		;;
 		--install)
 			PCA_OPMODE="install"
+		;;
+		--select-ca)
+			PCA_SELECTED_CA="$2"
+			shift
+		;;
+		--update-crl)
+		 	PCA_OPMODE="update-crl"
+		;;
+		--encrypt-private)
+		 	PCA_OPMODE="encrypt-private"
+		;;
+		--decrypt-private)
+		 	PCA_OPMODE="decrypt-private"
 		;;
 		--rc)
 			[ -f "$2" ] && . $2
@@ -1253,6 +1275,62 @@ fi
 ##########################
 
 ##########################
+# OPMODE: UPDATE-CRL
+
+if [ "$PCA_OPMODE" = "update-crl" ]; then
+	echo "[0;1;34;94mUpdate of $PCA_SELECTED_CA in progress.[0m"
+	case $PCA_SELECTED_CA in
+		root-ca|master-ca|network-ca|component-ca|identity-ca)
+			$PCA_OPENSSL ca -gencrl \
+				-config $PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf \
+				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl || error 1 "Update failed"
+		;;
+		*)
+			error 7 "Unknown or invalid CA selected"
+		;;
+	esac
+fi
+
+# END OPMODE: UPDATE-CRL
+##########################
+
+##########################
+# OPMODE: ENCRYPT-PRIVATE
+
+if [ "$PCA_OPMODE" = "encrypt-private" ]; then
+	echo "[0;1;34;94mEncrypting private key of $PCA_SELECTED_CA in progress.[0m"
+	case $PCA_SELECTED_CA in
+		root-ca|master-ca|network-ca|component-ca|identity-ca)
+			$PCA_OPENSSL rsa -des -in $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key -out $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key
+		;;
+		*)
+			error 7 "Unknown or invalid CA selected"
+		;;
+	esac
+fi
+
+# END OPMODE: ENCRYPT-P...
+##########################
+
+##########################
+# OPMODE: DECRYPT-PRIVATE
+
+if [ "$PCA_OPMODE" = "decrypt-private" ]; then
+	echo "[0;1;34;94mDecrypting private key of $PCA_SELECTED_CA in progress.[0m"
+	case $PCA_SELECTED_CA in
+		root-ca|master-ca|network-ca|component-ca|identity-ca)
+			$PCA_OPENSSL rsa -in $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key -out $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key
+		;;
+		*)
+			error 7 "Unknown or invalid CA selected"
+		;;
+	esac
+fi
+
+# END OPMODE: DECRYPT-P...
+##########################
+
+##########################
 # OPMODE: SETUP
 
 if [ "$PCA_OPMODE" = "setup" ]; then
@@ -1362,11 +1440,6 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/component-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
 	echo $OK || echo $FAILED
-
-	for pth in root-ca master-ca component-ca network-ca identity-ca; do
-		echo "[0;1;34;94m=== Encrypting $pth private key ===[0m"
-		$PCA_OPENSSL rsa -des -in $PCA_BASE_PATH/ca/$pth/private/$pth.key -out $PCA_BASE_PATH/ca/$pth/private/$pth.key
-	done
 	
 	echo -e "\n[0;1;34;94mPerfect-CA has been setup.[0m"
 	echo -e "[0;1;34;94mYou can now backup your Root-CA key[0m"
