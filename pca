@@ -1026,6 +1026,7 @@ for arg in $*; do
 		--dn-streetaddress)
 			PCA_DN_STREETADDRESS="$2"
 			shift
+		;;
 		--dn-postalcode)
 			PCA_DN_POSTALCODE="$2"
 			shift
@@ -1045,6 +1046,7 @@ for arg in $*; do
 		--root-ca-md)
 			PCA_ROOTCA_MD="$2"
 			shift
+		;;
 		--root-ca-valid-days)
 			PCA_ROOTCA_VALID_DAYS="$2"
 			shift
