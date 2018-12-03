@@ -1,27 +1,33 @@
 #!/bin/bash
-#################################################################################
-#                                                                               #
-#    pca - An OpenSSL based "perfect" CA setup and management tool              #
-#    Copyright (C) 2018 Oliver Welter <oliver@welter.rocks>                     #
-#                                                                               #
-#    This program is free software: you can redistribute it and/or modify       #
-#    it under the terms of the GNU General Public License as published by       #
-#    the Free Software Foundation, either version 3 of the License, or          #
-#    (at your option) any later version.                                        #
-#                                                                               #
-#    This program is distributed in the hope that it will be useful,            #
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of             #
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              #
-#    GNU General Public License for more details.                               #
-#                                                                               #
-#    You should have received a copy of the GNU General Public License          #
-#    along with this program.  If not, see <https://www.gnu.org/licenses/>.     #
-#                                                                               #
-#################################################################################
-#                                                                               #
-#    Usage: pca --help                                                          #
-#                                                                               #
-#################################################################################
+
+function license()
+{
+	cat <<-EOL
+	##############################################################################
+	#                                                                            #
+	#   pca - An OpenSSL based "perfect" CA setup and management tool            #
+	#   Copyright (C) 2018 Oliver Welter <oliver@welter.rocks>                   #
+	#                                                                            #
+	#   This program is free software: you can redistribute it and/or modify     #
+	#   it under the terms of the GNU General Public License as published by     #
+	#   the Free Software Foundation, either version 3 of the License, or        #
+	#   (at your option) any later version.                                      #
+	#                                                                            #
+	#   This program is distributed in the hope that it will be useful,          #
+	#   but WITHOUT ANY WARRANTY; without even the implied warranty of           #
+	#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            #
+	#   GNU General Public License for more details.                             #
+	#                                                                            #
+	#   You should have received a copy of the GNU General Public License        #
+	#   along with this program.  If not, see <https://www.gnu.org/licenses/>.   #
+	#                                                                            #
+	##############################################################################
+	#                                                                            #
+	#   Usage: pca --help                                                        #
+	#                                                                            #
+	##############################################################################
+	EOL
+}
 
 ##########################
 # BASIC CONFIGRATION
@@ -93,6 +99,9 @@ PCA_OPENSSL="/usr/bin/openssl"
 
 [ -x "$PCA_OPENSSL" ] || PCA_OPENSSL=`which openssl 2>/dev/null`
 [ -x "$PCA_OPENSSL" ] || error 1 "Missing OpenSSL"
+
+PCA_GITHUB="https://github.com/VerboteneZone/perfect-ca"
+PCA_PROGNAME="pca"
 
 # END BASIC CONFIGURATION
 ##########################
@@ -911,6 +920,33 @@ function configuration_write()
 ##########################
 
 ##########################
+# HELP CONTEXT
+
+function help_context()
+{
+	cat <<-EOF
+	##############################################################################
+	#                                                                            #
+	# Help context:                                                              #
+	# =============                                                              #
+	#                                                                            #
+	# --help                           Show this help                            #
+	# --license                        Show license                              #
+	#                                                                            #
+	# --setup                          Setup new Certificate Authorities         #
+	# --overwrite                      Overwrite existing CA configuration       #
+	#                                                                            #
+	# --update                         Check for updates on GitHub               #
+	# --install                        Install available updates from GitHub     #
+	#                                                                            #
+	##############################################################################	
+	EOF
+}
+
+# END HELP CONTEXT
+##########################
+
+##########################
 # CLI ARGUMENTS
 
 PCA_OPMODE=""
@@ -924,6 +960,36 @@ cat <<EOF
  [0;1;36;96m#[0m      [0;1;33;93m#"[0;1;32;92m""[0;1;36;96m"[0m   [0;1;35;95m#[0m       [0;1;36;96m#[0m    [0;1;35;95m#[0;1;31;91m""[0;1;33;93m""[0m  [0;1;36;96m#[0m        [0;1;33;93m#[0m     [0;1;34;94m"[0;1;35;95m""[0m   [0;1;33;93m#[0m       [0;1;35;95m#[0;1;31;91mmm[0;1;33;93m#[0m 
  [0;1;34;94m#[0m      [0;1;32;92m"#[0;1;36;96mmm[0;1;34;94m"[0m   [0;1;31;91m#[0m       [0;1;34;94m#[0m    [0;1;31;91m"[0;1;33;93m#m[0;1;32;92mm"[0m  [0;1;34;94m"#[0;1;35;95mmm[0;1;31;91m"[0m    [0;1;32;92m"[0;1;36;96mmm[0m          [0;1;36;96m"m[0;1;34;94mmm[0;1;35;95m"[0m [0;1;31;91m#[0m    [0;1;32;92m#[0m
 
+EOF
+
+for arg in $*; do
+	case $1 in
+		--license)
+			license
+			exit 255
+		;;
+		--help)
+			help_context
+			exit 255
+		;;
+		--setup)
+			PCA_OPMODE="setup"
+		;;
+		--overwrite)
+			PCA_OVERWRITE="yes"
+		;;
+		--update)
+			PCA_OPMODE="update"
+		;;
+		--install)
+			PCA_OPMODE="install"
+		;;
+	esac
+	
+	shift
+done
+
+cat <<-EOF
  [0;1;34;94mCopyright (c) 2018 [0;1;32;92mOliver Welter[0;1;34;94m <[0;1;36;96moliver@welter.rocks[0;1;34;94m>[0m
  [0;1;34;94mSee [0;1;32;93mhttps://github.com/VerboteneZone/perfect-ca[0;1;34;94m for details.[0m
 
@@ -933,20 +999,50 @@ cat <<EOF
 
 EOF
 
-for arg in $*; do
-	case $1 in
-		--setup)
-			PCA_OPMODE="setup"
-		;;
-		--overwrite)
-			PCA_OVERWRITE="yes"
-		;;
-	esac
-	
-	shift
-done
-
 # END CLI ARGUMENTS
+##########################
+
+##########################
+# OPMODE: UPDATE
+
+if [ "$PCA_OPMODE" = "update" -o "$PCA_MODE" = "install" ]; then
+	echo -n "[0;1;34;94mChecking for updates...[0m"
+	mypwd=`pwd`
+	cmd=`which $PCA_PROGNAME`
+	[ "$cmd" = "" ] && cmd="$0"
+	check1=`md5sum -b $cmd`
+	tmp=`mktemp -d -q --suffix .pca`
+	[ "$tmp" = "" ] && error 5 "mktemp missing"
+	cd $tmp &&
+	git clone $PCA_GITHUB >/dev/null 2>&1 && \
+	echo $OK || echo $FAILED
+	check2=`md5sum -b $tmp/perfect-ca/$PCA_PROGNAME`
+	cd $pwd
+	if [ "$PCA_OPMODE" = "update" ]; then
+		rm -rf $tmp >/dev/null 2>&1
+		if [ "$check1" = "$check2" ]; then
+			echo "[0;1;32;92mNo update available[0m"
+			exit
+		else
+			echo "[0;1;32;91mUpdate available[0m"	
+			exit 1
+		fi
+	else
+		if [ "$check1" = "$check2" ]; then
+			rm -rf $tmp >/dev/null 2>&1
+			echo "[0;1;32;92mNo installable update available[0m"
+			exit 1
+		else
+			echo -n "[0;1;34;94mInstalling update...[0m"
+			inst=`cp -f $tmp/perfect-ca/$PCA_PROGNAME $cmd >/dev/null 2>&1 && echo 0 || echo 1`
+			[ "$inst" = "0" ] && echo $OK || echo $FAILED
+			rm -rf $tmp >/dev/null 2>&1
+			exit $inst
+		fi	
+	fi
+fi
+
+# END OPMODE: UPDATE
 ##########################
 
 ##########################
