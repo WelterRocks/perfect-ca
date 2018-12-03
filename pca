@@ -1010,13 +1010,13 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_MODE" = "install" ]; then
 	mypwd=`pwd`
 	cmd=`which $PCA_PROGNAME`
 	[ "$cmd" = "" ] && cmd="$0"
-	check1=`md5sum -b $cmd`
+	check1=`md5sum $cmd | awk '{print $1}'`
 	tmp=`mktemp -d -q --suffix .pca`
 	[ "$tmp" = "" ] && error 5 "mktemp missing"
 	cd $tmp &&
 	git clone $PCA_GITHUB >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
-	check2=`md5sum -b $tmp/perfect-ca/$PCA_PROGNAME`
+	check2=`md5sum -b $tmp/perfect-ca/$PCA_PROGNAME | awk '{print $1}'`
 	cd $pwd
 	if [ "$PCA_OPMODE" = "update" ]; then
 		rm -rf $tmp >/dev/null 2>&1
