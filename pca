@@ -1481,6 +1481,8 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_MODE" = "install" ]; then
 			exit $inst
 		fi	
 	fi
+	
+	exit
 fi
 
 # END OPMODE: UPDATE
@@ -1493,17 +1495,23 @@ if [ "$PCA_OPMODE" = "update-crl" ]; then
 	echo "[0;1;34;94mUpdate of $PCA_SELECTED_CA in progress.[0m"
 	case $PCA_SELECTED_CA in
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
+			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl 2>/dev/null`
+			rm -f $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
 			$PCA_OPENSSL ca -gencrl \
 				-config $PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf \
-				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl && \
+				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl && \
 			$PCA_OPENSSL crl -outform der \
-				-in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl \
+				-in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl \
 				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl >/dev/null 2>&1 || error 1 "Update failed"
+			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl 2>/dev/null`
+			ln -sf $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
 		;;
 		*)
 			error 7 "Unknown or invalid CA selected"
 		;;
 	esac
+	
+	exit
 fi
 
 # END OPMODE: UPDATE-CRL
@@ -1594,12 +1602,12 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-extensions root_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
-		-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/crl/root-ca.xrl >/dev/null 2>&1 && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/root-ca.crt \
 		-out $PCA_BASE_PATH/ca/certs/root-ca.cer >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
-		-in $PCA_BASE_PATH/ca/crl/root-ca.crl \
+		-in $PCA_BASE_PATH/ca/crl/root-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/root-ca.crt \
@@ -1619,13 +1627,13 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-extensions intermediate_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
-		-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/crl/master-ca.xrl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/master-ca.crt $PCA_BASE_PATH/ca/certs/root-ca.crt > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/master-ca.crt \
 		-out $PCA_BASE_PATH/ca/certs/master-ca.cer >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
-		-in $PCA_BASE_PATH/ca/crl/master-ca.crl \
+		-in $PCA_BASE_PATH/ca/crl/master-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/master-ca.crt \
@@ -1652,13 +1660,13 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-extensions intermediate_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
-		-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/crl/network-ca.xrl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/network-ca.crt $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/network-ca.crt \
 		-out $PCA_BASE_PATH/ca/certs/network-ca.cer >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
-		-in $PCA_BASE_PATH/ca/crl/network-ca.crl \
+		-in $PCA_BASE_PATH/ca/crl/network-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/network-ca.crt \
@@ -1685,13 +1693,13 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-extensions signing_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/identity-ca.conf \
-		-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/crl/identity-ca.xrl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/identity-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/identity-ca.crt \
 		-out $PCA_BASE_PATH/ca/certs/identity-ca.cer >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
-		-in $PCA_BASE_PATH/ca/crl/identity-ca.crl \
+		-in $PCA_BASE_PATH/ca/crl/identity-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/identity-ca.crt \
@@ -1718,13 +1726,13 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-extensions signing_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/component-ca.conf \
-		-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/crl/component-ca.xrl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/component-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/component-ca.crt \
 		-out $PCA_BASE_PATH/ca/certs/component-ca.cer >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
-		-in $PCA_BASE_PATH/ca/crl/component-ca.crl \
+		-in $PCA_BASE_PATH/ca/crl/component-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/component-ca.crt \
@@ -1738,6 +1746,15 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-out $PCA_BASE_PATH/ca/certs/component-chain.p7c \
 		-nocrl >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
+	
+	echo -n "[0;1;34;94mExecuting rehash...[0m"
+	for pth in root-ca master-ca network-ca component-ca identity-ca; do
+		hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.crt 2>/dev/null`
+		ln -s $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
+		hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$pth.xrl 2>/dev/null`
+		ln -s $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+	done
+	echo $OK
 			
 	echo -e "\n[0;1;34;94mPerfect-CA has been setup.[0m"
 	echo -e "[0;1;34;94mYou can now backup your Root-CA key[0m"
