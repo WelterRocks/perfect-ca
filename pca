@@ -1097,6 +1097,9 @@ PCA_FILENAME=""
 PCA_DAYS=""
 PCA_NAME=""
 PCA_CRL_REASON="superseded"
+PCA_SUBJECT=""
+PCA_NODES=""
+PCA_SKIP=""
 
 cat <<EOF
 
@@ -1134,12 +1137,25 @@ for arg in $*; do
 			PCA_DAYS="$2"
 			shift
 		;;
+		--subject)
+			PCA_SUBJECT="$2"
+			shift
+		;;
+		--nodes)
+			PCA_NODES="1"
+		;;
+		--skip-pkcs12)
+			PCA_SKIP="1"
+		;;
 		--select-ca)
 			PCA_SELECTED_CA="$2"
 			shift
 		;;
 		--update-crl)
 		 	PCA_OPMODE="update-crl"
+		;;
+		--create-certificate)
+			PCA_OPMODE="create-certificate"
 		;;
 		--create-request)
 			PCA_OPMODE="create-request"
@@ -1479,7 +1495,10 @@ if [ "$PCA_OPMODE" = "update-crl" ]; then
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
 			$PCA_OPENSSL ca -gencrl \
 				-config $PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf \
-				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl || error 1 "Update failed"
+				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl && \
+			$PCA_OPENSSL crl -outform der \
+				-in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl \
+				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl >/dev/null 2>&1 || error 1 "Update failed"
 		;;
 		*)
 			error 7 "Unknown or invalid CA selected"
@@ -1735,10 +1754,14 @@ fi
 ##########################
 # OPMODE: CREATE-REQUEST
 
-if [ "$PCA_OPMODE" = "create-request" ]; then
+if [ "$PCA_OPMODE" = "create-request" -o "$PCA_OPMODE" = "create-certificate" ]; then
 	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
 	
 	config=""
+	opts=""
+	
+	[ "$PCA_SUBJECT" = "" ] || opts="-subj '$PCA_SUBJECT'"
+	[ "$PCA_NODES" = "" ] || opts="-nodes $opts"
 	
 	case $PCA_USE_CONFIG in
 		identity|server|client|timestamp|encryption|ocspsign)
@@ -1749,11 +1772,12 @@ if [ "$PCA_OPMODE" = "create-request" ]; then
 		;;
 	esac
 	
-	$PCA_OPENSSL req -new \
-		-config $config \
+	/bin/bash -c "$PCA_OPENSSL req -new \
+		-config $config $opts \
 		-out $PCA_BASE_PATH/ca/requests/$PCA_FILENAME.csr \
-		-keyout $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key
-	exit
+		-keyout $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key" || error 7 "Create CSR failed"
+				
+	[ "$PCA_OPMODE" = "create-certificate" ] || exit
 fi
 
 # END OPMODE: CREATE-REQ..
@@ -1762,12 +1786,13 @@ fi
 ##########################
 # OPMODE: SIGN-REQUEST
 
-if [ "$PCA_OPMODE" = "sign-request" ]; then
+if [ "$PCA_OPMODE" = "sign-request" -o "$PCA_OPMODE" = "create-certificate" ]; then
 	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
 	
 	config=""
 	ext=""
 	days=""
+	opts="" 
 	
 	case $PCA_USE_CONFIG in
 		server|client|timestamp|ocspsign)
@@ -1816,13 +1841,15 @@ if [ "$PCA_OPMODE" = "sign-request" ]; then
 	esac
 	
 	[ "$PCA_DAYS" = "" ] || days="$PCA_DAYS"
+	[ "$PCA_OPMODE" = "create-certificate" ] && opts="-batch $opts"
 	
-	$PCA_OPENSSL ca \
-		-config $config \
+	/bin/bash -c "$PCA_OPENSSL ca \
+		-config $config $opts \
 		-in $PCA_BASE_PATH/ca/requests/$PCA_FILENAME.csr \
 		-out $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.crt \
-		-extensions $ext -days $days
-	exit
+		-extensions $ext -days $days" || error 7 "Unable to sign request"
+		
+	[ "$PCA_OPMODE" = "create-certificate" ] || exit
 fi
 
 # END OPMODE: SIGN-REQ....
@@ -1831,7 +1858,9 @@ fi
 ##########################
 # OPMODE: PKCS12
 
-if [ "$PCA_OPMODE" = "pkcs12" ]; then
+if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
+	[ "$PCA_OPMODE" = "create-certificate" -a "$PCA_SKIP" = "1" ] && exit
+	
 	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
 	
 	chain=""
@@ -1883,6 +1912,7 @@ if [ "$PCA_OPMODE" = "pkcs12" ]; then
 	esac
 	
 	[ "$PCA_NAME" = "" ] || opts="-name '$PCA_NAME' $opts"
+	[ "$PCA_NODES" = "" ] || opts="-nodes $opts"
 	
 	/bin/bash -c "$PCA_OPENSSL pkcs12 -export $opts \
 		-inkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
