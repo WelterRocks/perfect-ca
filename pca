@@ -1094,6 +1094,9 @@ PCA_USE_CONFIG=""
 PCA_OVERWRITE=""
 PCA_SELECTED_CA="component-ca"
 PCA_FILENAME=""
+PCA_DAYS=""
+PCA_NAME=""
+PCA_CRL_REASON="superseded"
 
 cat <<EOF
 
@@ -1127,6 +1130,10 @@ for arg in $*; do
 		--install)
 			PCA_OPMODE="install"
 		;;
+		--days)
+			PCA_DAYS="$2"
+			shift
+		;;
 		--select-ca)
 			PCA_SELECTED_CA="$2"
 			shift
@@ -1137,9 +1144,38 @@ for arg in $*; do
 		--create-request)
 			PCA_OPMODE="create-request"
 		;;
+		--sign-request)
+			PCA_OPMODE="sign-request"
+		;;
+		--pkcs12)
+			PCA_OPMODE="pkcs12"
+		;;
+		--revoke)
+			PCA_OPMODE="revoke"
+		;;
+		--crl-reason)
+			PCA_CRL_REASON="$2"
+			shift
+		;;
+		--name)
+			PCA_NAME="$2"
+			shift
+		;;
 		--filename)
 			PCA_FILENAME="$2"
 			shift
+		;;
+		--root-ca)
+			PCA_USE_CONFIG="root_ca"
+		;;
+		--master-ca)
+			PCA_USE_CONFIG="master_ca"
+		;;
+		--signing-ca)
+			PCA_USE_CONFIG="signing_ca"
+		;;
+		--intermediate-ca)
+			PCA_USE_CONFIG="intermediate_ca"
 		;;
 		--identity)
 			PCA_USE_CONFIG="identity"
@@ -1540,6 +1576,16 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/root-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/root-ca.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl -outform der \
+		-in $PCA_BASE_PATH/ca/crl/root-ca.crl \
+		-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/root-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/root-ca.p7c \
+		-nocrl >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
 
 	echo -n "[0;1;34;94mSetting up Master-CA...[0m"
@@ -1556,6 +1602,23 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/master-ca.crt $PCA_BASE_PATH/ca/certs/root-ca.crt > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/master-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/master-ca.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl -outform der \
+		-in $PCA_BASE_PATH/ca/crl/master-ca.crl \
+		-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/master-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/master-ca.p7c \
+		-nocrl >/dev/null 2>&1 && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/master-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/master-chain.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/master-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/master-chain.p7c \
+		-nocrl >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
 
 	echo -n "[0;1;34;94mSetting up Network-CA...[0m"
@@ -1572,6 +1635,23 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/network-ca.crt $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/network-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/network-ca.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl -outform der \
+		-in $PCA_BASE_PATH/ca/crl/network-ca.crl \
+		-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/network-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/network-ca.p7c \
+		-nocrl >/dev/null 2>&1 && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/network-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/network-chain.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/network-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/network-chain.p7c \
+		-nocrl >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
 
 	echo -n "[0;1;34;94mSetting up Identity-CA...[0m"
@@ -1588,6 +1668,23 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-config $PCA_BASE_PATH/ca/conf/identity-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/identity-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/identity-ca.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl -outform der \
+		-in $PCA_BASE_PATH/ca/crl/identity-ca.crl \
+		-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/identity-ca.p7c \
+		-nocrl >/dev/null 2>&1 && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/identity-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/identity-chain.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/identity-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/identity-chain.p7c \
+		-nocrl >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
 
 	echo -n "[0;1;34;94mSetting up Component-CA...[0m"
@@ -1604,8 +1701,25 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-config $PCA_BASE_PATH/ca/conf/component-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
 	cat $PCA_BASE_PATH/ca/certs/component-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/component-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/component-ca.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl -outform der \
+		-in $PCA_BASE_PATH/ca/crl/component-ca.crl \
+		-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/component-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/component-ca.p7c \
+		-nocrl >/dev/null 2>&1 && \
+	$PCA_OPENSSL x509 -outform der \
+		-in $PCA_BASE_PATH/ca/certs/component-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/component-chain.cer >/dev/null 2>&1 && \
+	$PCA_OPENSSL crl2pkcs7 -outform der \
+		-certfile $PCA_BASE_PATH/ca/certs/component-chain.pem \
+		-out $PCA_BASE_PATH/ca/certs/component-chain.p7c \
+		-nocrl >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
-	
+			
 	echo -e "\n[0;1;34;94mPerfect-CA has been setup.[0m"
 	echo -e "[0;1;34;94mYou can now backup your Root-CA key[0m"
 	echo -e "[0;1;34;94mfrom $PCA_BASE_PATH/ca/root-ca/private/root-ca.key[0m"
@@ -1641,3 +1755,158 @@ if [ "$PCA_OPMODE" = "create-request" ]; then
 		-keyout $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key
 	exit
 fi
+
+# END OPMODE: CREATE-REQ..
+##########################
+
+##########################
+# OPMODE: SIGN-REQUEST
+
+if [ "$PCA_OPMODE" = "sign-request" ]; then
+	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
+	
+	config=""
+	ext=""
+	days=""
+	
+	case $PCA_USE_CONFIG in
+		server|client|timestamp|ocspsign)
+			config="$PCA_BASE_PATH/ca/conf/component-ca.conf"
+			ext="${PCA_USE_CONFIG}_ext"
+			days="$PCA_COMPONENTCA_VALID_DAYS"
+		;;
+		identity|encryption)
+			config="$PCA_BASE_PATH/ca/conf/identity-ca.conf"
+			ext="${PCA_USE_CONFIG}_ext"
+			days="$PCA_IDENTITYCA_VALID_DAYS"
+		;;
+		signing_ca)
+			config="$PCA_BASE_PATH/ca/conf/network-ca.conf"
+			ext="${PCA_USE_CONFIG}_ext"
+			days="$PCA_NETWORKCA_VALID_DAYS"
+		;;
+		intermediate_ca)
+			config="$PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf"
+			[ -f "$config" ] || error 6 "Unable to find selected CA"
+			ext="${PCA_USE_CONFIG}_ext"
+			
+			case $PCA_SELECTED_CA in
+				root_ca)
+					days="$PCA_ROOTCA_VALID_DAYS"
+				;;
+				master_ca)
+					days="$PCA_MASTERCA_VALID_DAYS"
+				;;
+				network_ca)
+					days="$PCA_NETWORKCA_VALID_DAYS"
+				;;
+				*)
+					error 7 "Invalid CA selected"
+				;;
+			esac
+		;;
+		master_ca|root_ca)
+			config="$PCA_BASE_PATH/ca/conf/$PCA_USE_CONFIG.conf"
+			ext="${PCA_USE_CONFIG}_ext"
+			[ "$PCA_USE_CONFIG" = "root_ca" ] && days="$PCA_ROOTCA_VALID_DAYS" || days="$PCA_MASTERCA_VALID_DAYS"
+		;;
+		*)
+			error 8 "Invalid configuration type requested"
+		;;
+	esac
+	
+	[ "$PCA_DAYS" = "" ] || days="$PCA_DAYS"
+	
+	$PCA_OPENSSL ca \
+		-config $config \
+		-in $PCA_BASE_PATH/ca/requests/$PCA_FILENAME.csr \
+		-out $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.crt \
+		-extensions $ext -days $days
+	exit
+fi
+
+# END OPMODE: SIGN-REQ....
+##########################
+
+##########################
+# OPMODE: PKCS12
+
+if [ "$PCA_OPMODE" = "pkcs12" ]; then
+	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
+	
+	chain=""
+	opts=""
+	
+	case $PCA_USE_CONFIG in
+		server|client|timestamp|ocspsign)
+			chain="component-chain.pem"
+			opts="-caname '$PCA_COMPONENTCA_ORG_UNIT_NAME' -caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+		;;
+		identity|encryption)
+			chain="identity-chain.pem"
+			opts="-caname '$PCA_IDENTITYCA_ORG_UNIT_NAME' -caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+		;;
+		signing_ca)
+			chain="network-chain.pem"
+			opts="-caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+		;;
+		intermediate_ca)			
+			case $PCA_SELECTED_CA in
+				root_ca)
+					chain="root-ca.pem"
+					opts="-caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+				;;
+				master_ca)
+					chain="master-chain.pem"
+					opts="-caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+				;;
+				network_ca)
+					chain="network-chain.pem"
+					opts="-caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+				;;
+				*)
+					error 7 "Invalid CA selected"
+				;;
+			esac
+		;;
+		master_ca)
+			chain="master-chain.pem"
+			opts="-caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+		;;
+		root_ca)
+			chain="root-ca.pem"
+			opts="-caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
+		;;
+		*)
+			error 8 "Invalid configuration type requested"
+		;;
+	esac
+	
+	[ "$PCA_NAME" = "" ] || opts="-name '$PCA_NAME' $opts"
+	
+	/bin/bash -c "$PCA_OPENSSL pkcs12 -export $opts \
+		-inkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
+		-in $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.crt \
+		-certfile $PCA_BASE_PATH/ca/certs/$chain \
+		-out $PCA_FILENAME.p12"
+	exit
+fi
+
+# END OPMODE: PKCS12
+##########################
+
+##########################
+# OPMODE: REVOKE
+
+if [ "$PCA_OPMODE" = "revoke" ]; then
+	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
+			
+	$PCA_OPENSSL ca \
+		-config $PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf \
+		-revoke $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/certs/$PCA_FILENAME.pem \
+		-crl_reason $PCA_CRL_REASON
+	exit
+fi
+
+# END OPMODE: REVOKE
+##########################
