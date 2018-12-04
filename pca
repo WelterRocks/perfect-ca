@@ -1223,6 +1223,9 @@ for arg in $*; do
 		--skip-pkcs12)
 			PCA_SKIP="1"
 		;;
+		--validate)
+			PCA_OPMODE="validate"
+		;;
 		--select-ca)
 			PCA_SELECTED_CA="$2"
 			shift
@@ -2343,8 +2346,25 @@ fi
 ##########################
 
 ##########################
+# OPMODE: VALIDATE
+
+if [ "$PCA_OPMODE" = "validate" ]; then
+	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
+			
+	$PCA_OPENSSL verify -CApath $PCA_BASE_PATH/ca/certs $PCA_FILENAME
+
+	exit $?
+fi
+
+# END OPMODE: VALIDATE
+##########################
+
+##########################
 # OPMODE: ---
 
 if [ "$PCA_OPMODE" = "" -a "$PCA_CMD" != "" ]; then
 	error 254 "Invalid operation mode specified. See '$0 --help' for details"
 fi
+
+# END OPMODE: ---
+##########################
