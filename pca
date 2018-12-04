@@ -1066,7 +1066,7 @@ function help_context()
 	# --license                        Show license information.                 #
 	#                                                                            #
 	# --setup                          Setup new Certificate Authorities.        #
-	# --overwrite                      Overwrite existing CA configuration.      #
+	# --force                          Force overwrite of existing CA files.     #
 	#                                                                            #
 	# --update                         Check for updates on GitHub.              #
 	# --install                        Install available updates from GitHub.    #
@@ -1091,7 +1091,7 @@ function help_context()
 
 PCA_OPMODE=""
 PCA_USE_CONFIG=""
-PCA_OVERWRITE=""
+PCA_FORCE=""
 PCA_SELECTED_CA="component-ca"
 PCA_FILENAME=""
 PCA_DAYS=""
@@ -1100,6 +1100,7 @@ PCA_CRL_REASON="superseded"
 PCA_SUBJECT=""
 PCA_NODES=""
 PCA_SKIP=""
+PCA_CMD=`echo $* | cut -d \  -f2`
 
 cat <<EOF
 
@@ -1124,8 +1125,8 @@ for arg in $*; do
 		--setup)
 			PCA_OPMODE="setup"
 		;;
-		--overwrite)
-			PCA_OVERWRITE="yes"
+		--force)
+			PCA_FORCE="yes"
 		;;
 		--update)
 			PCA_OPMODE="update"
@@ -1168,6 +1169,9 @@ for arg in $*; do
 		;;
 		--revoke)
 			PCA_OPMODE="revoke"
+		;;
+		--renew-ca)
+			PCA_OPMODE="renew-ca"
 		;;
 		--crl-reason)
 			PCA_CRL_REASON="$2"
@@ -1434,6 +1438,9 @@ cat <<-EOF
  [0;1;34;94mCopyright (c) 2018 [0;1;32;92mOliver Welter[0;1;34;94m <[0;1;36;96moliver@welter.rocks[0;1;34;94m>[0m
  [0;1;34;94mSee [0;1;32;93mhttps://github.com/VerboteneZone/perfect-ca[0;1;34;94m for details.[0m
 
+EOF
+
+[ "$PCA_CMD" = "" ] && cat <<-EOF
  [0;1;34;94mThis program comes with ABSOLUTELY NO WARRANTY, licensed under GPLv3.[0m
  [0;1;34;94mThis is free software, and you are welcome to redistribute it[0m
  [0;1;34;94munder certain conditions; type '[0;1;31;91m$0 --license[0;1;34;94m' for details.[0m
@@ -1561,7 +1568,7 @@ fi
 # OPMODE: SETUP
 
 if [ "$PCA_OPMODE" = "setup" ]; then
-	if [ "$PCA_OVERWRITE" = "" ]; then
+	if [ "$PCA_FORCE" = "" ]; then
 		[ -d "$PCA_BASE_PATH/ca/root-ca" ] && error 2 "Root CA path exists"
 		[ -d "$PCA_BASE_PATH/ca/master-ca" ] && error 2 "Master CA path exists"
 		[ -d "$PCA_BASE_PATH/ca/component-ca" ] && error 2 "Component CA path exists"
@@ -1957,3 +1964,280 @@ fi
 
 # END OPMODE: REVOKE
 ##########################
+
+##########################
+# OPMODE: RENEW-CA
+
+if [ "$PCA_OPMODE" = "renew-ca" ]; then
+	dateNow=`date +%s`
+	
+	renewRootCA=""
+	renewMasterCA=""
+	renewNetworkCA=""
+	renewComponentCA=""
+	renewIdentityCA=""
+
+	updateMasterCA=""
+	updateNetworkCA=""
+	updateComponentCA=""
+	updateIdentityCA=""
+	
+	rehash=""
+
+	if [ "$PCA_FORCE" = "" ]; then
+		for pth in root-ca master-ca network-ca component-ca identity-ca; do
+			echo -n "[0;1;34;94mChecking validity of $pth...[0m"
+		
+			dateCert=`openssl x509 -in $PCA_BASE_PATH/ca/certs/$pth.crt -noout -dates | grep notAfter | cut -d = -f2`
+			dateCertTS=`date -d "${dateCert}" +%s`
+			certValid=$(($dateCertTS > $dateNow))
+			
+			if [ "$certValid" = "1" ]; then
+				echo $OK
+			else
+				echo $FAILED
+				
+				case $pth in
+					root-ca)
+						renewRootCA="1"
+						updateMasterCA="1"
+						updateNetworkCA="1"
+						updateComponentCA="1"
+						updateIdentityCA="1"
+						rehash="1"
+					;;
+					master-ca)
+						renewMasterCA="1"
+						updateMasterCA="1"
+						updateNetworkCA="1"
+						updateComponentCA="1"
+						updateIdentityCA="1"
+						rehash="1"
+					;;
+					network-ca)
+						renewNetworkCA="1"
+						updateNetworkCA="1"
+						updateComponentCA="1"
+						updateIdentityCA="1"
+						rehash="1"
+					;;
+					component-ca)
+						renewComponentCA="1"
+						updateComponentCA="1"
+						rehash="1"
+					;;
+					identity-ca)
+						renewIdentityCA="1"
+						updateIdentityCA="1"
+						rehash="1"
+					;;
+				esac
+			fi
+		done
+	else
+		renewRootCA="1"
+		renewMasterCA="1"
+		renewNetworkCA="1"
+		renewComponentCA="1"
+		renewIdentityCA="1"
+	
+		updateMasterCA="1"
+		updateNetworkCA="1"
+		updateComponentCA="1"
+		updateIdentityCA="1"
+		
+		rehash="1"	
+	fi
+		
+	if [ "$renewRootCA" = "1" ]; then
+		echo -n "[0;1;34;94mRenewing certificate of Root-CA...[0m"
+		$PCA_OPENSSL ca -selfsign -batch \
+			-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
+			-in $PCA_BASE_PATH/ca/requests/root-ca.csr \
+			-out $PCA_BASE_PATH/ca/certs/root-ca.crt \
+			-extensions root_ca_ext >/dev/null 2>&1 && \
+		$PCA_OPENSSL ca -gencrl -batch \
+			-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
+			-out $PCA_BASE_PATH/ca/crl/root-ca.xrl >/dev/null 2>&1 && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/root-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/root-ca.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl -outform der \
+			-in $PCA_BASE_PATH/ca/crl/root-ca.xrl \
+			-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/root-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/root-ca.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED
+	fi
+	
+	if [ "$renewMasterCA" = "1" ]; then
+		echo -n "[0;1;34;94mRenewing certificate of Master-CA...[0m"
+		$PCA_OPENSSL ca -batch \
+			-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
+			-in $PCA_BASE_PATH/ca/requests/master-ca.csr \
+			-out $PCA_BASE_PATH/ca/certs/master-ca.crt \
+			-extensions intermediate_ca_ext >/dev/null 2>&1 && \
+		$PCA_OPENSSL ca -gencrl -batch \
+			-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
+			-out $PCA_BASE_PATH/ca/crl/master-ca.xrl >/dev/null 2>&1 && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/master-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/master-ca.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl -outform der \
+			-in $PCA_BASE_PATH/ca/crl/master-ca.xrl \
+			-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/master-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/master-ca.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED	
+	fi
+				
+	if [ "$renewNetworkCA" = "1" ]; then
+		echo -n "[0;1;34;94mRenewing certificate of Network-CA...[0m"
+		$PCA_OPENSSL ca -batch \
+			-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
+			-in $PCA_BASE_PATH/ca/requests/network-ca.csr \
+			-out $PCA_BASE_PATH/ca/certs/network-ca.crt \
+			-extensions intermediate_ca_ext >/dev/null 2>&1 && \
+		$PCA_OPENSSL ca -gencrl -batch \
+			-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
+			-out $PCA_BASE_PATH/ca/crl/network-ca.xrl >/dev/null 2>&1 && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/network-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/network-ca.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl -outform der \
+			-in $PCA_BASE_PATH/ca/crl/network-ca.xrl \
+			-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/network-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/network-ca.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED
+	fi
+
+	if [ "$renewIdentityCA" = "1" ]; then
+		echo -n "[0;1;34;94mRenewing certificate of Identity-CA...[0m"
+		$PCA_OPENSSL ca -batch \
+			-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
+			-in $PCA_BASE_PATH/ca/requests/identity-ca.csr \
+			-out $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+			-extensions signing_ca_ext >/dev/null 2>&1 && \
+		$PCA_OPENSSL ca -gencrl -batch \
+			-config $PCA_BASE_PATH/ca/conf/identity-ca.conf \
+			-out $PCA_BASE_PATH/ca/crl/identity-ca.xrl >/dev/null 2>&1 && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/identity-ca.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl -outform der \
+			-in $PCA_BASE_PATH/ca/crl/identity-ca.xrl \
+			-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/identity-ca.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED
+	fi
+
+	if [ "$renewComponentCA" = "1" ]; then
+		echo -n "[0;1;34;94mRenewing certificate of Component-CA...[0m"
+		$PCA_OPENSSL ca -batch \
+			-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
+			-in $PCA_BASE_PATH/ca/requests/component-ca.csr \
+			-out $PCA_BASE_PATH/ca/certs/component-ca.crt \
+			-extensions signing_ca_ext >/dev/null 2>&1 && \
+		$PCA_OPENSSL ca -gencrl -batch \
+			-config $PCA_BASE_PATH/ca/conf/component-ca.conf \
+			-out $PCA_BASE_PATH/ca/crl/component-ca.xrl >/dev/null 2>&1 && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/component-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/component-ca.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl -outform der \
+			-in $PCA_BASE_PATH/ca/crl/component-ca.xrl \
+			-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/component-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/component-ca.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED
+	fi
+	
+	if [ "$updateMasterCA" = "1" ]; then
+		echo -n "[0;1;34;94mUpdating chain for Master-CA...[0m"
+		cat $PCA_BASE_PATH/ca/certs/master-ca.crt $PCA_BASE_PATH/ca/certs/root-ca.crt > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/master-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/master-chain.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/master-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/master-chain.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED	
+	fi
+	
+	if [ "$updateNetworkCA" = "1" ]; then
+		echo -n "[0;1;34;94mUpdating chain for Network-CA...[0m"
+		cat $PCA_BASE_PATH/ca/certs/network-ca.crt $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/network-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/network-chain.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/network-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/network-chain.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED	
+	fi
+
+	if [ "$updateIdentityCA" = "1" ]; then
+		echo -n "[0;1;34;94mUpdating chain for Identity-CA...[0m"
+		cat $PCA_BASE_PATH/ca/certs/identity-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/identity-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/identity-chain.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/identity-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/identity-chain.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED	
+	fi
+	
+	if [ "$updateComponentCA" = "1" ]; then
+		echo -n "[0;1;34;94mUpdating chain for Component-CA...[0m"
+		cat $PCA_BASE_PATH/ca/certs/component-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
+		$PCA_OPENSSL x509 -outform der \
+			-in $PCA_BASE_PATH/ca/certs/component-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/component-chain.cer >/dev/null 2>&1 && \
+		$PCA_OPENSSL crl2pkcs7 -outform der \
+			-certfile $PCA_BASE_PATH/ca/certs/component-chain.pem \
+			-out $PCA_BASE_PATH/ca/certs/component-chain.p7c \
+			-nocrl >/dev/null 2>&1 && \
+		echo $OK || echo $FAILED	
+	fi
+
+	if [ "$rehash" = "1" ]; then
+		echo -n "[0;1;34;94mExecuting rehash...[0m"
+		find $PCA_BASE_PATH/ca/certs -type l -name "*.0" -exec unlink {} \;
+		find $PCA_BASE_PATH/ca/crl -type l -name "*.0" -exec unlink {} \;
+		for pth in root-ca master-ca network-ca component-ca identity-ca; do
+			hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.crt 2>/dev/null`
+			ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
+			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$pth.xrl 2>/dev/null`
+			ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+		done
+		echo $OK
+	fi
+			
+	exit
+fi
+
+# END OPMODE: RENEW-CA
+##########################
+
+##########################
+# OPMODE: ---
+
+if [ "$PCA_OPMODE" = "" -a "$PCA_CMD" != "" ]; then
+	error 254 "Invalid operation mode specified. See '$0 --help' for details"
+fi
