@@ -1122,25 +1122,130 @@ function help_context()
 	cat <<-EOF
 	##############################################################################
 	#                                                                            #
-	# Help context:                                                              #
-	# =============                                                              #
+	# Help and information:                                                      #
+	# =====================                                                      #
 	#                                                                            #
 	# --help                           Show this help context.                   #
 	# --license                        Show license information.                 #
+	# --version                        Show version information                  #
 	#                                                                            #
-	# --setup                          Setup new Certificate Authorities.        #
-	# --force                          Force overwrite of existing CA files.     #
+	# Operation modes:                                                           #
+	# ================                                                           #
 	#                                                                            #
+	# --setup                          Setup new certificate authorities.        #
+	# --create-request                 Create a new certificate signing req.     #
+	# --sign-request                   Sign a previously created CSR.            #
+	# --create-certificate             Create a CSR and sign it.                 #
+	# --update-crl                     Update a certificate revocation list.     #
+	# --encrypt-private                Encrypt the private key of specified CA.  #
+	# --decrypt-private                Decrypt the private key of specified CA.  #
+	# --pkcs12                         Create .p12 file from certificate.        #
+	# --revoke                         Revoke a certificate.                     #
+	# --renew-ca                       Renew expired certificate authorities.    #
+	# --validate                       Verify a given certificate file.          #
 	# --update                         Check for updates on GitHub.              #
 	# --install                        Install available updates from GitHub.    #
 	#                                                                            #
+	# Generic switches:                                                          #
+	# =================                                                          #
+	#                                                                            #
+	# --filename [file]                Filename to use for specific operation.   #
+	# --days [days]                    Set valid days for certificate.           #
+	# --subject [subject]              Use subject instead of predefined DN.     #
+	# --nodes                          Do not encrypt the private key of a cert. #
+	# --skip-pkcs12                    Do not auto-generate a .p12 file.         #
+	# --crl-reason [reason]            Set revocation reason (def. superseded).  #
+	# --name [name]                    Set name for .p12 files.                  #
+	# --force                          Force overwrite of existing CA files in   #
+	#                                  setup mode or force renew of CA certs.    #
 	# --select-ca [CA]                 Select a specified CA from:               #
 	#                                  root-ca, master-ca, network-ca,           #
 	#                                  component-ca (default) or identity-ca     #
+	# --rc [rcfile]                    Use alternate resource control file.      #
+	# --ssl-certs [path]               Path to systems SSL database.             #
 	#                                                                            #
-	# --update-crl                     Update CRL of a selected CA.              #
-	# --encrypt-private                Encrypt the private key of selected CA.   #
-	# --decrypt-private                Decrypt the private key of selected CA.   #
+	# Set configuration to use:                                                  #
+	# =========================                                                  #
+	# (needed for create-request, sign-request and pkcs12)                       #
+	#                                                                            #
+	# --root-ca                        Use configuration for Root-CA.            #
+	# --master-ca                      Use configuration for Master-CA.          #
+	# --network-ca                     Use configuration for Network-CA.         #
+	# --component-ca                   Use configuration for Component-CA.       #
+	# --identity-ca                    Use configuration for Identity-CA.        #
+	# --identity                       Use configuration for an identity cert.   #
+	# --server                         Use configuration for a server cert.      #
+	# --client                         Use configuration for a client cert.      #
+	# --timestamp                      Use configuration for a timestamp cert.   #
+	# --encryption                     Use configuration for an encryption cert. #
+	# --ocspsign                       Use configuration for an OCSP-Sign cert.  #
+	#                                                                            #
+	# Override default settings and RC definitions:                              #
+	# =============================================                              #
+	#                                                                            #
+	# --base-path [...]                                                          #
+	# --base-name [...]                                                          #
+	# --base-ocsp-url [...]                                                      #
+	# --base-pki-url [...]                                                       #
+	# --base-trustlist-url [...]                                                 #
+	#                                                                            #
+	# --dn-countryname [...]                                                     #
+	# --dn-stateorprovincename [...]                                             #
+	# --dn-localityname [...]                                                    #
+	# --dn-streetaddress [...]                                                   #
+	# --dn-postalcode [...]                                                      #
+	# --dn-owner [...]                                                           #
+	# --dn-organizationname [...]                                                #
+	# --dn-businesscategory [...]                                                #
+	#                                                                            #
+	# --root-ca-bits [...]                                                       #
+	# --root-ca-md [...]                                                         #
+	# --root-ca-valid-days [...]                                                 #
+	# --root-ca-crl-days [...]                                                   #
+	# --root-ca-org-unit-name [...]                                              #
+	#                                                                            #
+	# --master-ca-bits [...]                                                     #
+	# --master-ca-md [...]                                                       #
+	# --master-ca-valid-days [...]                                               #
+	# --master-ca-crl-days [...]                                                 #
+	# --master-ca-org-unit-name [...]                                            #
+	#                                                                            #
+	# --network-ca-bits [...]                                                    #
+	# --network-ca-md [...]                                                      #
+	# --network-ca-valid-days [...]                                              #
+	# --network-ca-crl-days [...]                                                #
+	# --network-ca-org-unit-name [...]                                           #
+	#                                                                            #
+	# --component-ca-bits [...]                                                  #
+	# --component-ca-md [...]                                                    #
+	# --component-ca-valid-days [...]                                            #
+	# --component-ca-crl-days [...]                                              #
+	# --component-ca-org-unit-name [...]                                         #
+	#                                                                            #
+	# --identity-ca-bits [...]                                                   #
+	# --identity-ca-md [...]                                                     #
+	# --identity-ca-valid-days [...]                                             #
+	# --identity-ca-crl-days [...]                                               #
+	# --identity-ca-org-unit-name [...]                                          #
+	#                                                                            #
+	# --ocspsign-bits [...]                                                      #
+	# --ocspsign-md [...]                                                        #
+	#                                                                            #
+	# --encryption-bits [...]                                                    #
+	# --encryption-md [...]                                                      #
+	#                                                                            #
+	# --timestamp-bits [...]                                                     #
+	# --timestamp-md [...]                                                       #
+	#                                                                            #
+	# --client-bits [...]                                                        #
+	# --client-md [...]                                                          #
+	#                                                                            #
+	# --server-bits [...]                                                        #
+	# --server-md [...]                                                          #
+	# --server-san-dns [...]                                                     #
+	#                                                                            #
+	# --identity-bits [...]                                                      #
+	# --identity-md [...]                                                        #
 	#                                                                            #
 	##############################################################################	
 	EOF
@@ -1164,7 +1269,6 @@ PCA_SUBJECT=""
 PCA_NODES=""
 PCA_SKIP=""
 PCA_CMD=`echo $* | cut -d \  -f2`
-PCA_SSL_INSTALL=""
 PCA_CMD_VERSION_RAW=`echo $* | grep "version raw" >/dev/null 2>&1 && echo 1`
 
 [ "$PCA_CMD_VERSION_RAW" = "" ] && cat <<EOF
@@ -1510,9 +1614,6 @@ for arg in $*; do
 		--ssl-certs)
 			PCA_SSL_CERTS="$2"
 			shift
-		;;
-		--ssl-install)
-			PCA_SSL_INSTALL="1"
 		;;
 	esac
 	
