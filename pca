@@ -33,45 +33,45 @@ function license()
 # BASIC CONFIGRATION
 
 PCA_BASE_PATH="/etc/pki"
-PCA_BASE_NAME="Welter.Rocks"
-PCA_BASE_OCSP_URL="http://ocsp.welter.rocks"
-PCA_BASE_PKI_URL="http://pki.welter.rocks"
-PCA_BASE_TRUSTLIST_URL="https://pki.welter.rocks/trustList.etl"
+PCA_BASE_NAME="Perfect-CA"
+PCA_BASE_OCSP_URL="http://ocsp.verbotene.zone"
+PCA_BASE_PKI_URL="http://pki.verbotene.zone"
+PCA_BASE_TRUSTLIST_URL="https://pki.verbotene.zone/trustList.etl"
 
 PCA_DN_COUNTRYNAME="DE"
 PCA_DN_STATEORPROVINCENAME="Hessen"
-PCA_DN_LOCALITYNAME="Gilserberg"
-PCA_DN_STREETADDRESS="Burgweg 9"
-PCA_DN_POSTALCODE="34630"
+PCA_DN_LOCALITYNAME="Musterstadt"
+PCA_DN_STREETADDRESS="Musterstrasse 123"
+PCA_DN_POSTALCODE="12345"
 PCA_DN_OWNER="Oliver Welter"
-PCA_DN_ORGANIZATIONNAME="Welter"
+PCA_DN_ORGANIZATIONNAME="Musterfirma"
 PCA_DN_BUSINESSCATEGORY="private"
 
-PCA_ROOTCA_BITS="4096"
+PCA_ROOTCA_BITS="2048"
 PCA_ROOTCA_MD="sha256"
 PCA_ROOTCA_VALID_DAYS="7665"
 PCA_ROOTCA_CRL_DAYS="365"
 PCA_ROOTCA_ORG_UNIT_NAME="$PCA_BASE_NAME Root Certificate Authority"
 
-PCA_MASTERCA_BITS="4096"
+PCA_MASTERCA_BITS="2048"
 PCA_MASTERCA_MD="sha256"
 PCA_MASTERCA_VALID_DAYS="3650"
 PCA_MASTERCA_CRL_DAYS="180"
 PCA_MASTERCA_ORG_UNIT_NAME="$PCA_BASE_NAME Master Certificate Authority"
 
-PCA_COMPONENTCA_BITS="4096"
+PCA_COMPONENTCA_BITS="2048"
 PCA_COMPONENTCA_MD="sha256"
 PCA_COMPONENTCA_VALID_DAYS="3650"
 PCA_COMPONENTCA_CRL_DAYS="180"
 PCA_COMPONENTCA_ORG_UNIT_NAME="$PCA_BASE_NAME Component Certificate Authority"
 
-PCA_NETWORKCA_BITS="4096"
+PCA_NETWORKCA_BITS="2048"
 PCA_NETWORKCA_MD="sha256"
 PCA_NETWORKCA_VALID_DAYS="3650"
 PCA_NETWORKCA_CRL_DAYS="180"
 PCA_NETWORKCA_ORG_UNIT_NAME="$PCA_BASE_NAME Network Certificate Authority"
 
-PCA_IDENTITYCA_BITS="4096"
+PCA_IDENTITYCA_BITS="2048"
 PCA_IDENTITYCA_MD="sha256"
 PCA_IDENTITYCA_VALID_DAYS="3650"
 PCA_IDENTITYCA_CRL_DAYS="180"
@@ -83,19 +83,20 @@ PCA_OCSPSIGN_MD="sha1"
 PCA_TIMESTAMP_BITS="2048"
 PCA_TIMESTAMP_MD="sha1"
 
-PCA_ENCRYPTION_BITS="8192"
-PCA_ENCRYPTION_MD="sha512"
+PCA_ENCRYPTION_BITS="4096"
+PCA_ENCRYPTION_MD="sha256"
 
 PCA_SERVER_BITS="4096"
 PCA_SERVER_MD="sha256"
-PCA_SERVER_SAN_DNS="welter.rocks"
+PCA_SERVER_SAN_DNS="verbotene.zone"
 
 PCA_CLIENT_BITS="4096"
 PCA_CLIENT_MD="sha256"
 
-PCA_IDENTITY_BITS="8192"
-PCA_IDENTITY_MD="sha512"
+PCA_IDENTITY_BITS="4096"
+PCA_IDENTITY_MD="sha256"
 
+PCA_SSL_CERTS="/etc/ssl/certs"
 PCA_OPENSSL="/usr/bin/openssl"
 
 [ -f "$PCA_BASE_PATH/pcarc" ] && . $PCA_BASE_PATH/pcarc
@@ -106,6 +107,7 @@ PCA_OPENSSL="/usr/bin/openssl"
 
 PCA_GITHUB="https://github.com/VerboteneZone/perfect-ca"
 PCA_PROGNAME="pca"
+PCA_VERSION="1.01.1033"
 
 # END BASIC CONFIGURATION
 ##########################
@@ -123,6 +125,68 @@ function error()
 }
 
 # END ERROR FUNCTION
+##########################
+
+##########################
+# VERSION FUNCTION
+
+function version()
+{
+	if [ "$1" = "" ];  then
+		echo "[0;1;32;93mVersion: $PCA_VERSION[0m"
+		exit 253
+	elif [ "$1" = "raw" ]; then
+		echo $PCA_VERSION
+		exit
+	else
+		NEW_VERSION="$1"
+		
+		this_major=`echo $PCA_VERSION | cut -d . -f1`
+		this_minor=`echo $PCA_VERSION | cut -d . -f2`
+		this_revision=`echo $PCA_VERSION | cut -d . -f3`
+
+		that_major=`echo $NEW_VERSION | cut -d . -f1`
+		that_minor=`echo $NEW_VERSION | cut -d . -f2`
+		that_revision=`echo $NEW_VERSION | cut -d . -f3`
+		
+		gt_major=$(($that_major > $this_major))
+		gt_minor=$(($that_minor > $this_minor))
+		gt_revision=$(($that_revision > $this_revision))
+
+		eq_major=$(($that_major == $this_major))
+		eq_minor=$(($that_minor == $this_minor))
+		eq_revision=$(($that_revision == $this_revision))
+		
+		if [ "$eq_major" = "1" ]; then
+			if [ "$eq_minor" = "1" ]; then
+				if [ "$eq_revision" = "1" ]; then
+					echo "[0;1;32;92mVersion is equal to this build.[0m"
+					exit
+				elif [ "$gt_revision" = "1" ]; then
+					echo "[0;1;32;93mRevision version greater than this build.[0m"
+					exit 6
+				else
+					echo "[0;1;32;91mRevision version smaller than this build.[0m"
+					exit 5
+				fi
+			elif [ "$gt_minor" = "1" ]; then
+				echo "[0;1;32;93mMinor version greater than this build.[0m"
+				exit 4
+			else
+				echo "[0;1;32;91mMinor version smaller than this build.[0m"
+				exit 3	
+			fi
+		elif [ "$gt_major" = "1" ]; then
+			echo "[0;1;32;93mMajor version greater than this build.[0m"
+			exit 2
+		else
+			echo "[0;1;32;91mMajor version smaller than this build.[0m"
+			exit 1		
+		fi
+	fi
+}
+
+# END VERSION FUNCTION
 ##########################
 
 ##########################
@@ -163,7 +227,6 @@ function config_header()
 
 function config_ca_section_default()
 {
-		
 	assurance=""
 	deviceass=""
 	trustlist=""
@@ -1101,8 +1164,10 @@ PCA_SUBJECT=""
 PCA_NODES=""
 PCA_SKIP=""
 PCA_CMD=`echo $* | cut -d \  -f2`
+PCA_SSL_INSTALL=""
+PCA_CMD_VERSION_RAW=`echo $* | grep "version raw" >/dev/null 2>&1 && echo 1`
 
-cat <<EOF
+[ "$PCA_CMD_VERSION_RAW" = "" ] && cat <<EOF
 
  [0;1;31;91mm[0;1;33;93mmm[0;1;32;92mmm[0m                  [0;1;31;91mm"[0;1;33;93m"[0m                  [0;1;34;94mm[0m             [0;1;35;95mm[0;1;31;91mmm[0m    [0;1;36;96mmm[0m  
  [0;1;33;93m#[0m   [0;1;36;96m"[0;1;34;94m#[0m  [0;1;35;95mm[0;1;31;91mmm[0m    [0;1;36;96mm[0m [0;1;34;94mmm[0m  [0;1;31;91mmm[0;1;33;93m#m[0;1;32;92mm[0m   [0;1;34;94mmm[0;1;35;95mm[0m    [0;1;33;93mm[0;1;32;92mmm[0m   [0;1;34;94mm[0;1;35;95mm#[0;1;31;91mmm[0m         [0;1;35;95mm[0;1;31;91m"[0m   [0;1;32;92m"[0m   [0;1;34;94m##[0m  
@@ -1121,6 +1186,16 @@ for arg in $*; do
 		--help)
 			help_context
 			exit 255
+		;;
+		--version)
+			check_version="$2"
+			shift
+			
+			if [ "$check_version" = "" ]; then
+				version
+			else
+				version $check_version
+			fi
 		;;
 		--setup)
 			PCA_OPMODE="setup"
@@ -1429,6 +1504,13 @@ for arg in $*; do
 			PCA_IDENTITY_MD="$2"
 			shift
 		;;
+		--ssl-certs)
+			PCA_SSL_CERTS="$2"
+			shift
+		;;
+		--ssl-install)
+			PCA_SSL_INSTALL="1"
+		;;
 	esac
 	
 	shift
@@ -1467,13 +1549,21 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_MODE" = "install" ]; then
 	check2=`md5sum -b $tmp/perfect-ca/$PCA_PROGNAME | awk '{print $1}'`
 	cd $pwd
 	if [ "$PCA_OPMODE" = "update" ]; then
-		rm -rf $tmp >/dev/null 2>&1
 		if [ "$check1" = "$check2" ]; then
+			rm -rf $tmp >/dev/null 2>&1
 			echo "[0;1;32;92mNo update available[0m"
 			exit
 		else
-			echo "[0;1;32;91mUpdate available[0m"	
-			exit 1
+			check_version=`$tmp/perfect-ca/$PCA_PROGNAME --version $PCA_VERSION >/dev/null 2>&1; echo $?`
+			rm -rf $tmp >/dev/null 2>&1
+			
+			if [ "$check_version" = 2 -o "$check_version" = 4 -o "$check_version" = 6 ]; then
+				echo "[0;1;32;91mUpdate available[0m"	
+				exit 1
+			else
+				echo "[0;1;32;93mNo update available, but GIT checksum differs.[0m"
+				exit 255
+			fi
 		fi
 	else
 		if [ "$check1" = "$check2" ]; then
@@ -1481,11 +1571,18 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_MODE" = "install" ]; then
 			echo "[0;1;32;92mNo installable update available[0m"
 			exit 1
 		else
-			echo -n "[0;1;34;94mInstalling update...[0m"
-			inst=`cp -f $tmp/perfect-ca/$PCA_PROGNAME $cmd >/dev/null 2>&1 && echo 0 || echo 1`
-			[ "$inst" = "0" ] && echo $OK || echo $FAILED
-			rm -rf $tmp >/dev/null 2>&1
-			exit $inst
+			check_version=`$tmp/perfect-ca/$PCA_PROGNAME --version $PCA_VERSION >/dev/null 2>&1; echo $?`
+
+			if [ "$check_version" = 2 -o "$check_version" = 4 -o "$check_version" = 6 ]; then
+				echo -n "[0;1;34;94mInstalling update...[0m"
+				inst=`cp -f $tmp/perfect-ca/$PCA_PROGNAME $cmd >/dev/null 2>&1 && echo 0 || echo 1`
+				[ "$inst" = "0" ] && echo $OK || echo $FAILED
+				rm -rf $tmp >/dev/null 2>&1
+				exit $inst
+			else
+				echo "[0;1;32;93mGIT checksum differs, so install manually.[0m"
+				exit 254
+			fi
 		fi	
 	fi
 	
@@ -1504,6 +1601,7 @@ if [ "$PCA_OPMODE" = "update-crl" ]; then
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
 			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl 2>/dev/null`
 			rm -f $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+			rm -f $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 			$PCA_OPENSSL ca -gencrl \
 				-config $PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf \
 				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl && \
@@ -1512,6 +1610,7 @@ if [ "$PCA_OPMODE" = "update-crl" ]; then
 				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl >/dev/null 2>&1 || error 1 "Update failed"
 			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl 2>/dev/null`
 			ln -sf $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+			ln -sf $PCA_SSL_CERTS/PCA_$PCA_SELECTED_CA.crl $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 		;;
 		*)
 			error 7 "Unknown or invalid CA selected"
@@ -1757,9 +1856,13 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	echo -n "[0;1;34;94mExecuting rehash...[0m"
 	for pth in root-ca master-ca network-ca component-ca identity-ca; do
 		hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.crt 2>/dev/null`
-		ln -s $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
+		ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
+		ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_SSL_CERTS/PCA_$pth.pem >/dev/null 2>&1
+		ln -sf $PCA_SSL_CERTS/PCA_$pth.pem $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 		hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$pth.xrl 2>/dev/null`
-		ln -s $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+		ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+		ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_SSL_CERTS/PCA_$pth.crl >/dev/null 2>&1
+		ln -sf $PCA_SSL_CERTS/PCA_$pth.crl $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 	done
 	echo $OK
 			
@@ -2223,8 +2326,12 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		for pth in root-ca master-ca network-ca component-ca identity-ca; do
 			hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.crt 2>/dev/null`
 			ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
+			ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_SSL_CERTS/PCA_$pth.pem >/dev/null 2>&1
+			ln -sf $PCA_SSL_CERTS/PCA_$pth.pem $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$pth.xrl 2>/dev/null`
 			ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+			ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_SSL_CERTS/PCA_$pth.crl >/dev/null 2>&1
+			ln -sf $PCA_SSL_CERTS/PCA_$pth.crl $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 		done
 		echo $OK
 	fi
