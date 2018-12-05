@@ -433,6 +433,7 @@ function config_ca_section_policies()
 	mt_organizational_unit_name="optional"
 	mt_common_name="supplied"
 	
+	any_domain_component="optional"
 	any_country_name="optional"
 	any_state_or_province_name="optional"
 	any_locality_name="optional"
