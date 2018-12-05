@@ -96,6 +96,8 @@ PCA_CLIENT_MD="sha256"
 PCA_IDENTITY_BITS="4096"
 PCA_IDENTITY_MD="sha256"
 
+PCA_GRACEDAYS="14"
+
 PCA_SSL_CERTS="/etc/ssl/certs"
 PCA_OPENSSL="/usr/bin/openssl"
 
@@ -1154,6 +1156,7 @@ function help_context()
 	# --subject [subject]              Use subject instead of predefined DN.     #
 	# --nodes                          Do not encrypt the private key of a cert. #
 	# --skip-pkcs12                    Do not auto-generate a .p12 file.         #
+	# --skip-gracetime                 Skip grace period for certificate renewal.#
 	# --crl-reason [reason]            Set revocation reason (def. superseded).  #
 	# --name [name]                    Set name for .p12 files.                  #
 	# --force                          Force overwrite of existing CA files in   #
@@ -1247,6 +1250,8 @@ function help_context()
 	# --identity-bits [...]                                                      #
 	# --identity-md [...]                                                        #
 	#                                                                            #
+	# --gracedays [...]                                                          #
+	#                                                                            #
 	##############################################################################	
 	EOF
 }
@@ -1267,7 +1272,8 @@ PCA_NAME=""
 PCA_CRL_REASON="superseded"
 PCA_SUBJECT=""
 PCA_NODES=""
-PCA_SKIP=""
+PCA_SKIP_PKCS12=""
+PCA_SKIP_GRACE=""
 PCA_CMD=`echo $* | cut -d \  -f2`
 PCA_CMD_VERSION_RAW=`echo $* | grep "version raw" >/dev/null 2>&1 && echo 1`
 
@@ -1325,7 +1331,10 @@ for arg in $*; do
 			PCA_NODES="1"
 		;;
 		--skip-pkcs12)
-			PCA_SKIP="1"
+			PCA_SKIP_PKCS12="1"
+		;;
+		--skip-gracetime)
+			PCA_SKIP_GRACE="1"
 		;;
 		--validate)
 			PCA_OPMODE="validate"
@@ -1609,6 +1618,10 @@ for arg in $*; do
 		;;
 		--identity-md)
 			PCA_IDENTITY_MD="$2"
+			shift
+		;;
+		--gracedays)
+			PCA_GRACEDAYS="$2"
 			shift
 		;;
 		--ssl-certs)
@@ -2090,7 +2103,7 @@ fi
 # OPMODE: PKCS12
 
 if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
-	[ "$PCA_OPMODE" = "create-certificate" -a "$PCA_SKIP" = "1" ] && exit
+	[ "$PCA_OPMODE" = "create-certificate" -a "$PCA_SKIP_PKCS12" = "1" ] && exit
 	
 	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for request"
 	
@@ -2198,8 +2211,12 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			dateCert=`openssl x509 -in $PCA_BASE_PATH/ca/certs/$pth.crt -noout -dates | grep notAfter | cut -d = -f2`
 			dateCertTS=`date -d "${dateCert}" +%s`
 			certValid=$(($dateCertTS > $dateNow))
+			graceTime=$((86400 * $PCA_GRACEDAYS))
+			certGraceTime=$((($dateCertTS - $graceTime) > $dateNow))
 			
-			if [ "$certValid" = "1" ]; then
+			[ "$PCA_SKIP_GRACE" = "1" ] && certGraceTime="1"
+			
+			if [ "$certValid" = "1" -a "$certGraceTime" = "1" ]; then
 				echo $OK
 			else
 				echo $FAILED
