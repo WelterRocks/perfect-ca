@@ -1653,7 +1653,7 @@ EOF
 ##########################
 # OPMODE: UPDATE
 
-if [ "$PCA_OPMODE" = "update" -o "$PCA_MODE" = "install" ]; then
+if [ "$PCA_OPMODE" = "update" -o "$PCA_OPMODE" = "install" ]; then
 	echo -n "[0;1;34;94mChecking for updates...[0m"
 	mypwd=`pwd`
 	cmd=`which $PCA_PROGNAME`
