@@ -419,6 +419,13 @@ function config_ca_section_crl_info()
 	URI.0                   = \$crl_url
 
 	EOF
+	
+	[ "$1" = "component-ca" ] && cat <<-EOF
+	[ ocsp_info ]
+	caIssuers;URI.0         = \$aia_url
+	OCSP;URI.0              = \$ocsp_url
+	
+	EOF
 }
 
 function config_ca_section_policies()
