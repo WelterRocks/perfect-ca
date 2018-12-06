@@ -482,7 +482,21 @@ function config_ca_section_policies()
 	organizationName        = $mt_organization_name
 	organizationalUnitName  = $mt_organizational_unit_name
 	commonName              = $mt_common_name
+	EOF
 	
+	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
+		cat <<-EOF
+		businessCategory        = supplied
+		jurisdictionOfIncorporationLocalityName         	= optional
+		jurisdictionOfIncorporationStateOrProvinceName  	= optional
+		jurisdictionOfIncorporationCountryName          	= optional
+		
+		EOF
+	else
+		echo ""
+	fi
+
+	cat <<-EOF	
 	[ any_pol ]
 	domainComponent         = $any_domain_component
 	countryName             = $any_country_name
@@ -495,8 +509,19 @@ function config_ca_section_policies()
 	organizationalUnitName  = $any_organizational_unit_name
 	commonName              = $any_common_name
 	emailAddress            = $any_email_address
-	
 	EOF
+	
+	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
+		cat <<-EOF
+		businessCategory        = optional
+		jurisdictionOfIncorporationLocalityName         	= optional
+		jurisdictionOfIncorporationStateOrProvinceName  	= optional
+		jurisdictionOfIncorporationCountryName          	= optional
+		
+		EOF
+	else
+		echo ""
+	fi
 }
 
 function config_ca_section_operational()
