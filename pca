@@ -257,6 +257,7 @@ function config_ca_section_default()
 	ca                      = $1
 	dir                     = $PCA_BASE_PATH
 	base_url                = $PCA_BASE_PKI_URL
+	ocsp_url		= $PCA_BASE_OCSP_URL
 	aia_url                 = \$base_url/\$ca.cer
 	crl_url                 = \$base_url/\$ca.crl
 	name_opt                = multiline,-esc_msb,utf8
