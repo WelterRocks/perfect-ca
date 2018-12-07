@@ -484,9 +484,11 @@ function config_ca_section_policies()
 	commonName              = $mt_common_name
 	EOF
 	
-	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
+	if [ "$1" = "component-ca" ]; then
 		cat <<-EOF
-		businessCategory        = supplied
+		businessCategory        = optional
+		serialNumber            = optional
+		jurisdictionOfIncorporationCountryName = optional
 		
 		EOF
 	else
@@ -508,9 +510,11 @@ function config_ca_section_policies()
 	emailAddress            = $any_email_address
 	EOF
 	
-	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
+	if [ "$1" = "component-ca" ]; then
 		cat <<-EOF
 		businessCategory        = optional
+		serialNumber            = optional
+		jurisdictionOfIncorporationCountryName = optional
 		
 		EOF
 	else
@@ -832,14 +836,8 @@ function config_ca_tmpl_identity()
 	commonName_max          	= 64
 	emailAddress            	= "10. Email Address           (eg, name@fqdn)"
 	emailAddress_max        	= 40
-	businessCategory        				= "11. Business Category       (eg, private)  "
-	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionOfIncorporationLocalityName         	= "12. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
-	jurisdictionOfIncorporationStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionOfIncorporationCountryName          	= "14. Inc. Country                  (eg, DE)  "
-	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
+	businessCategory        	= "11. Business Category       (eg, private)  "
+	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
 	
 	[ identity_reqext ]
 	keyUsage                = critical,digitalSignature
@@ -894,14 +892,8 @@ function config_ca_tmpl_timestamp()
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
 	commonName_max          	= 64
-	businessCategory        				= "10. Business Category       (eg, private)  "
-	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionOfIncorporationLocalityName         	= "11. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
-	jurisdictionOfIncorporationStateOrProvinceName  	= "12. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionOfIncorporationCountryName          	= "13. Inc. Country                  (eg, DE)  "
-	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
+	businessCategory        	= "10. Business Category       (eg, private)  "
+	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
 	
 	[ timestamp_reqext ]
 	keyUsage                	= critical,digitalSignature
@@ -957,14 +949,8 @@ function config_ca_tmpl_encryption()
 	commonName_max          	= 64
 	emailAddress            	= "10. Email Address           (eg, name@fqdn)"
 	emailAddress_max        	= 40
-	businessCategory        				= "11. Business Category       (eg, private)  "
-	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionOfIncorporationLocalityName         	= "12. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
-	jurisdictionOfIncorporationStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionOfIncorporationCountryName          	= "14. Inc. Country                  (eg, DE)  "
-	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
+	businessCategory        	= "11. Business Category       (eg, private)  "
+	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
 	
 	[ encryption_reqext ]
 	keyUsage                	= critical,keyEncipherment
@@ -1020,13 +1006,14 @@ function config_ca_tmpl_server()
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
 	commonName_max          	= 64
-	businessCategory        				= "10. Business Category       (eg, private)  "
-	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionOfIncorporationLocalityName         	= "11. Inc. Locality Name            (eg, city)"
+	serialNumber                    = "10. Serial number           (eg, 1234567)  "
+	businessCategory        	= "11. Business Category       (eg, private)  "
+	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionOfIncorporationLocalityName         	= "12. Inc. Locality Name            (eg, city)"
 	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
-	jurisdictionOfIncorporationStateOrProvinceName  	= "12. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionOfIncorporationStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
 	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionOfIncorporationCountryName          	= "13. Inc. Country                  (eg, DE)  "
+	jurisdictionOfIncorporationCountryName          	= "14. Inc. Country                  (eg, DE)  "
 	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ server_reqext ]
@@ -1082,20 +1069,14 @@ function config_ca_tmpl_client()
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
 	commonName_max          	= 64
-	businessCategory        				= "10. Business Category       (eg, private)  "
-	businessCategory_default				= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionOfIncorporationLocalityName         	= "11. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
-	jurisdictionOfIncorporationStateOrProvinceName  	= "12. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionOfIncorporationCountryName          	= "13. Inc. Country                  (eg, DE)  "
-	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
+	businessCategory        	= "10. Business Category       (eg, private)  "
+	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
 	
 	[ client_reqext ]
 	keyUsage                	= critical,digitalSignature
 	extendedKeyUsage        	= clientAuth
 	subjectKeyIdentifier    	= hash
-	welterTrustList         	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	perfectCATrustList         	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
 
 	EOF
 }
