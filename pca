@@ -52,30 +52,35 @@ PCA_ROOTCA_MD="sha256"
 PCA_ROOTCA_VALID_DAYS="7665"
 PCA_ROOTCA_CRL_DAYS="365"
 PCA_ROOTCA_ORG_UNIT_NAME="$PCA_BASE_NAME Root Certificate Authority"
+PCA_ROOTCA_OCSP_PORT="8880"
 
 PCA_MASTERCA_BITS="2048"
 PCA_MASTERCA_MD="sha256"
 PCA_MASTERCA_VALID_DAYS="3650"
 PCA_MASTERCA_CRL_DAYS="180"
 PCA_MASTERCA_ORG_UNIT_NAME="$PCA_BASE_NAME Master Certificate Authority"
-
-PCA_COMPONENTCA_BITS="2048"
-PCA_COMPONENTCA_MD="sha256"
-PCA_COMPONENTCA_VALID_DAYS="3650"
-PCA_COMPONENTCA_CRL_DAYS="180"
-PCA_COMPONENTCA_ORG_UNIT_NAME="$PCA_BASE_NAME Component Certificate Authority"
+PCA_MASTERCA_OCSP_PORT="8881"
 
 PCA_NETWORKCA_BITS="2048"
 PCA_NETWORKCA_MD="sha256"
 PCA_NETWORKCA_VALID_DAYS="3650"
 PCA_NETWORKCA_CRL_DAYS="180"
 PCA_NETWORKCA_ORG_UNIT_NAME="$PCA_BASE_NAME Network Certificate Authority"
+PCA_NETWORKCA_OCSP_PORT="8882"
+
+PCA_COMPONENTCA_BITS="2048"
+PCA_COMPONENTCA_MD="sha256"
+PCA_COMPONENTCA_VALID_DAYS="3650"
+PCA_COMPONENTCA_CRL_DAYS="180"
+PCA_COMPONENTCA_ORG_UNIT_NAME="$PCA_BASE_NAME Component Certificate Authority"
+PCA_COMPONENTCA_OCSP_PORT="8883"
 
 PCA_IDENTITYCA_BITS="2048"
 PCA_IDENTITYCA_MD="sha256"
 PCA_IDENTITYCA_VALID_DAYS="3650"
 PCA_IDENTITYCA_CRL_DAYS="180"
 PCA_IDENTITYCA_ORG_UNIT_NAME="$PCA_BASE_NAME Identity Certificate Authority"
+PCA_IDENTITYCA_OCSP_PORT="8884"
 
 PCA_OCSPSIGN_BITS="2048"
 PCA_OCSPSIGN_MD="sha1"
@@ -236,20 +241,36 @@ function config_ca_section_default()
 	assurance=""
 	deviceass=""
 	trustlist=""
+	ocsp_port=""
 	
 	case $1 in
-		root-ca|master-ca|network-ca)
+		root-ca)
 			assurance="1"
 			deviceass="1"
 			trustlist="1"
+			ocsp_port="$PCA_ROOTCA_OCSP_PORT"
+		;;
+		master-ca)
+			assurance="1"
+			deviceass="1"
+			trustlist="1"
+			ocsp_port="$PCA_MASTERCA_OCSP_PORT"
+		;;
+		network-ca)
+			assurance="1"
+			deviceass="1"
+			trustlist="1"
+			ocsp_port="$PCA_NETWORKCA_OCSP_PORT"
 		;;
 		component-ca)
 			deviceass="1"
 			trustlist="1"
+			ocsp_port="$PCA_COMPONENTCA_OCSP_PORT"
 		;;
 		identity-ca)
 			assurance="1"
 			trustlist="1"
+			ocsp_port="$PCA_IDENTITYCA_OCSP_PORT"
 		;;
 		*)
 			error 11 "Unkown CA for default section"
@@ -261,7 +282,7 @@ function config_ca_section_default()
 	ca                      = $1
 	dir                     = $PCA_BASE_PATH
 	base_url                = $PCA_BASE_PKI_URL
-	ocsp_url		= $PCA_BASE_OCSP_URL
+	ocsp_url		= $PCA_BASE_OCSP_URL:$ocsp_port
 	aia_url                 = \$base_url/\$ca.cer
 	crl_url                 = \$base_url/\$ca.crl
 	name_opt                = multiline,-esc_msb,utf8
@@ -1295,30 +1316,35 @@ function help_context()
 	# --root-ca-valid-days [...]                                                 #
 	# --root-ca-crl-days [...]                                                   #
 	# --root-ca-org-unit-name [...]                                              #
+	# --root-ca-ocsp-port [...]                                                  #
 	#                                                                            #
 	# --master-ca-bits [...]                                                     #
 	# --master-ca-md [...]                                                       #
 	# --master-ca-valid-days [...]                                               #
 	# --master-ca-crl-days [...]                                                 #
 	# --master-ca-org-unit-name [...]                                            #
+	# --master-ca-ocsp-port [...]                                                #
 	#                                                                            #
 	# --network-ca-bits [...]                                                    #
 	# --network-ca-md [...]                                                      #
 	# --network-ca-valid-days [...]                                              #
 	# --network-ca-crl-days [...]                                                #
 	# --network-ca-org-unit-name [...]                                           #
+	# --network-ca-ocsp-port [...]                                               #
 	#                                                                            #
 	# --component-ca-bits [...]                                                  #
 	# --component-ca-md [...]                                                    #
 	# --component-ca-valid-days [...]                                            #
 	# --component-ca-crl-days [...]                                              #
 	# --component-ca-org-unit-name [...]                                         #
+	# --component-ca-ocsp-port [...]                                             #
 	#                                                                            #
 	# --identity-ca-bits [...]                                                   #
 	# --identity-ca-md [...]                                                     #
 	# --identity-ca-valid-days [...]                                             #
 	# --identity-ca-crl-days [...]                                               #
 	# --identity-ca-org-unit-name [...]                                          #
+	# --identity-ca-ocsp-port [...]                                              #
 	#                                                                            #
 	# --ocspsign-bits [...]                                                      #
 	# --ocspsign-md [...]                                                        #
@@ -1410,10 +1436,12 @@ for arg in $*; do
 		--ocsp-server)
 			PCA_OPMODE="ocsp-server"
 			PCA_OCSP_PORT="$2"
+			shift
 		;;
 		--ocsp-verify)
 			PCA_OPMODE="ocsp-verify"
 			PCA_OCSP_PORT="$2"
+			shift
 		;;
 		--force)
 			PCA_FORCE="yes"
@@ -1596,6 +1624,10 @@ for arg in $*; do
 			PCA_ROOTCA_ORG_UNIT_NAME="$2"
 			shift
 		;;
+		--root-ca-ocsp-port)
+			PCA_ROOTCA_OCSP_PORT="$2"
+			shift
+		;;
 		--master-ca-bits)
 			PCA_MASTERCA_BITS="$2"
 			shift
@@ -1614,6 +1646,10 @@ for arg in $*; do
 		;;
 		--master-ca-org-unit-name)
 			PCA_MASTERCA_ORG_UNIT_NAME="$2"
+			shift
+		;;
+		--master-ca-ocsp-port)
+			PCA_MASTERCA_OCSP_PORT="$2"
 			shift
 		;;
 		--component-ca-bits)
@@ -1636,6 +1672,10 @@ for arg in $*; do
 			PCA_COMPONENTCA_ORG_UNIT_NAME="$2"
 			shift
 		;;
+		--component-ca-ocsp-port)
+			PCA_COMPONENTCA_OCSP_PORT="$2"
+			shift
+		;;
 		--network-ca-bits)
 			PCA_NETWORKCA_BITS="$2"
 			shift
@@ -1656,6 +1696,10 @@ for arg in $*; do
 			PCA_NETWORKCA_ORG_UNIT_NAME="$2"
 			shift
 		;;
+		--network-ca-ocsp-port)
+			PCA_NETWORKCA_OCSP_PORT="$2"
+			shift
+		;;
 		--identity-ca-bits)
 			PCA_IDENTITYCA_BITS="$2"
 			shift
@@ -1674,6 +1718,10 @@ for arg in $*; do
 		;;
 		--identity-ca-org-unit-name)
 			PCA_IDENTITYCA_ORG_UNIT_NAME="$2"
+			shift
+		;;
+		--identity-ca-ocsp-port)
+			PCA_IDENTITYCA_OCSP_PORT="$2"
 			shift
 		;;
 		--ocspsign-bits)
