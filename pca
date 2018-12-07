@@ -687,7 +687,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCATrustList,@entrust,perfectCAExtenVal
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList,@cps_entrust,perfectCAExtenVal
 	
 	[ encryption_ext ]
 	keyUsage                = critical,keyEncipherment
@@ -699,9 +699,9 @@ function config_ca_section_ext()
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
-	[ entrust ]
-	policyIdentifier = 2.16.840.1.114028.10.1.2
-	CPS.1 = $PCA_BASE_PKI_URL/rpa
+	[ cps_entrust ]
+	policyIdentifier = 2.16.840.1.114412.2.1
+	CPS.1 = $PCA_BASE_PKI_URL/CPS
 
 	EOF
 	
@@ -714,7 +714,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList,@entrust,perfectCAExtenVal
+	certificatePolicies     = perfectCADevice,perfectCATrustList,@cps_entrust,perfectCAExtenVal
 	
 	[ client_ext ]
 	keyUsage                = critical,digitalSignature
@@ -724,7 +724,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList,@entrust,perfectCAExtenVal
+	certificatePolicies     = perfectCADevice,perfectCATrustList,@cps_entrust,perfectCAExtenVal
 	
 	[ timestamp_ext ]
 	keyUsage                = critical,digitalSignature
@@ -746,9 +746,9 @@ function config_ca_section_ext()
 	noCheck                 = null
 	certificatePolicies     = perfectCADevice,perfectCATrustList
 	
-	[ entrust ]
-	policyIdentifier = 2.16.840.1.114028.10.1.2
-	CPS.1 = $PCA_BASE_PKI_URL/rpa
+	[ cps_entrust ]
+	policyIdentifier =  2.16.840.1.114412.2.1
+	CPS.1 = $PCA_BASE_PKI_URL/CPS
 
 	EOF
 }
