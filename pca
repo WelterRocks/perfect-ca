@@ -267,6 +267,11 @@ function config_ca_section_default()
 	oid_section             = include_oids
 	
 	[ include_oids ]
+	#Uncomment, if you are using an older OpenSSL version
+	#businessCategory = 2.5.4.15
+	#jurisdictionOfIncorporationLocalityName = 1.3.6.1.4.1.311.60.2.1.1
+	#jurisdictionOfIncorporationStateOrProvinceName = 1.3.6.1.4.1.311.60.2.1.2
+	#jurisdictionOfIncorporationCountryName = 1.3.6.1.4.1.311.60.2.1.3
 	EOF
 	
 	[ "$assurance" = "1" ] && echo "perfectCAAssurance      = $PCA_BASE_NAME Assurance, 1.3.6.1.4.1.0.1.7.8"
@@ -488,6 +493,9 @@ function config_ca_section_policies()
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
+		jurisdictionC           = optional
+		jurisdictionL           = optional
+		jurisdictionST          = optional
 		
 		EOF
 	else
@@ -513,6 +521,9 @@ function config_ca_section_policies()
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
+		jurisdictionC           = optional
+		jurisdictionL           = optional
+		jurisdictionST          = optional
 		
 		EOF
 	else
