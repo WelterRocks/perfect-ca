@@ -1481,6 +1481,9 @@ for arg in $*; do
 		--identity)
 			PCA_USE_CONFIG="identity"
 		;;
+		--ev)
+			PCA_USE_CONFIG="ev"
+		;;
 		--server)
 			PCA_USE_CONFIG="server"
 		;;
