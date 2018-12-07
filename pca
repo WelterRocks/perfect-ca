@@ -1220,6 +1220,7 @@ function help_context()
 	# ================                                                           #
 	#                                                                            #
 	# --setup                          Setup new certificate authorities.        #
+	# --ocsp-server [port]             Start OCSP server on [port] (def.: 8888). #
 	# --export-chain                   Export certificate chain of selected CA.  #
 	# --create-request                 Create a new certificate signing req.     #
 	# --sign-request                   Sign a previously created CSR.            #
@@ -1363,6 +1364,7 @@ PCA_NAME=""
 PCA_CRL_REASON="superseded"
 PCA_SUBJECT=""
 PCA_NODES=""
+PCA_OCSP_PORT=""
 PCA_SKIP_PKCS12=""
 PCA_SKIP_GRACE=""
 PCA_CMD=`echo $* | cut -d \  -f2`
@@ -1403,6 +1405,10 @@ for arg in $*; do
 		;;
 		--setup)
 			PCA_OPMODE="setup"
+		;;
+		--ocsp-server)
+			PCA_OPMODE="ocsp"
+			PCA_OCSP_PORT="$2"
 		;;
 		--force)
 			PCA_FORCE="yes"
@@ -1903,10 +1909,10 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	
 	echo -n "[0;1;34;94mSetting up Perfect-CA paths and configs...[0m"
 	
-	rm -rf $PCA_BASE_PATH/ca/{crl,certs,conf,requests,private} >/dev/null 2>&1
-	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf,requests,private} >/dev/null 2>&1
+	rm -rf $PCA_BASE_PATH/ca/{log,crl,certs,conf,requests,private} >/dev/null 2>&1
+	mkdir -p $PCA_BASE_PATH/ca/{log,crl,certs,conf,requests,private} >/dev/null 2>&1
 	chmod 775 $PCA_BASE_PATH/ca/{crl,certs,requests} >/dev/null 2>&1
-	chmod 770 $PCA_BASE_PATH/ca/{conf,private} >/dev/null 2>&1
+	chmod 770 $PCA_BASE_PATH/ca/{log,conf,private} >/dev/null 2>&1
 	
 	for pth in root-ca master-ca component-ca network-ca identity-ca; do
 		rm -rf $PCA_BASE_PATH/ca/$pth >/dev/null 2>&1
@@ -2584,6 +2590,34 @@ if [ "$PCA_OPMODE" = "validate" ]; then
 fi
 
 # END OPMODE: VALIDATE
+##########################
+
+##########################
+# OPMODE: OCSP-SERVER
+
+if [ "$PCA_OPMODE" = "ocsp-server" ]; then			
+	[ "$PCA_OCSP_PORT" = "" ] && error 3 "Missing OCSP server port"
+	[ "$PCA_FILENAME" = "" ] && error 4 "Missing filename prefix for OCSP rsigner certificate and private key"
+	
+	case $PCA_SELECTED_CA in
+		root-ca|master-ca|network-ca|component-ca|identity-ca)
+			$PCA_OPENSSL ocsp \
+				-index $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/db/$PCA_SELECTED_CA.db \
+				-port $PCA_OCSP_PORT \
+				-rsigner $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.crt \
+				-rkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
+				-CA $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.crt \
+				-text -out $PCA_BASE_PATH/ca/log/ocsp-$PCA_SELECTED_CA.log
+		;;
+		*)
+			error 7 "Invalid CA selected"
+		;;
+	esac
+	
+	exit $?
+fi
+
+# END OPMODE: OCSP-SERVER
 ##########################
 
 ##########################
