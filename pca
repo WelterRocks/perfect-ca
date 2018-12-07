@@ -700,7 +700,7 @@ function config_ca_section_ext()
 	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
 	[ entrust ]
-	policyIdentifier = $PCA_BASE_NAME Entrust, 2.16.840.1.114028.10.1.2
+	policyIdentifier = 2.16.840.1.114028.10.1.2
 	CPS.1 = $PCA_BASE_PKI_URL/rpa
 
 	EOF
@@ -747,7 +747,7 @@ function config_ca_section_ext()
 	certificatePolicies     = perfectCADevice,perfectCATrustList
 	
 	[ entrust ]
-	policyIdentifier = $PCA_BASE_NAME Entrust, 2.16.840.1.114028.10.1.2
+	policyIdentifier = 2.16.840.1.114028.10.1.2
 	CPS.1 = $PCA_BASE_PKI_URL/rpa
 
 	EOF
