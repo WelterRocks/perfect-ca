@@ -1220,6 +1220,7 @@ function help_context()
 	# ================                                                           #
 	#                                                                            #
 	# --setup                          Setup new certificate authorities.        #
+	# --export-chain                   Export certificate chain of selected CA.  #
 	# --create-request                 Create a new certificate signing req.     #
 	# --sign-request                   Sign a previously created CSR.            #
 	# --create-certificate             Create a CSR and sign it.                 #
@@ -1396,6 +1397,9 @@ for arg in $*; do
 			else
 				version $check_version
 			fi
+		;;
+		--export-chain)
+			PCA_OPMODE="export-chain"
 		;;
 		--setup)
 			PCA_OPMODE="setup"
@@ -2580,6 +2584,52 @@ if [ "$PCA_OPMODE" = "validate" ]; then
 fi
 
 # END OPMODE: VALIDATE
+##########################
+
+##########################
+# OPMODE: EXPORT-CHAIN
+
+if [ "$PCA_OPMODE" = "export-chain" ]; then
+	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for export"
+	[ -e "$PCA_FILENAME" -a "$PCA_FORCE" = "" ] && error 8 "File $PCA_FILENAME exists. Use --force to overwrite."
+
+	echo -n "[0;1;34;94mExporting chain of $PCA_SELECTED_CA...[0m"
+	case $PCA_SELECTED_CA in
+		master-ca)
+			echo -n "" > $PCA_FILENAME
+			
+			$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/master-ca.crt >> $PCA_FILENAME
+			
+			echo $OK
+		;;
+		network-ca)
+			echo -n "" > $PCA_FILENAME
+			
+			for ca in $PCA_SELECTED_CA master-ca; do
+				$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
+			done
+			
+			echo $OK
+		;;
+		identity-ca|component-ca)
+			echo -n "" > $PCA_FILENAME
+			
+			for ca in $PCA_SELECTED_CA network-ca master-ca; do
+				$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
+			done
+			
+			echo $OK
+		;;
+		*)
+			echo $FAILED
+			error 7 "Unknown or invalid CA selected"
+		;;
+	esac
+
+	exit
+fi
+
+# END OPMODE: EXPORT-CHAIN
 ##########################
 
 ##########################
