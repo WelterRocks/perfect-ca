@@ -273,6 +273,8 @@ function config_ca_section_default()
 	[ include_oids ]
 	perfectCAExtenVal       = $PCA_BASE_NAME Extended Validation, 2.23.140.1.1
 	perfectCAAssurance      = $PCA_BASE_NAME Assurance, 1.3.6.1.4.1.0.1.7.8
+	perfectCATransparency   = $PCA_BASE_NAME Certificate Transparency, 1.3.6.1.4.1.11129.2.4.2
+	perfectCAOCSPResponse	= $PCA_BASE_NAME OCSP response, 1.3.6.1.4.1.11129.2.4.5
 	
 	EOF
 	
@@ -691,7 +693,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCATrustList
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList,perfectCATransparency
 	
 	[ encryption_ext ]
 	keyUsage                = critical,keyEncipherment
@@ -701,7 +703,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCATrustList
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList,perfectCATransparency
 	
 	EOF
 	
@@ -714,7 +716,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = @cps_entrust,perfectCAExtenVal
+	certificatePolicies     = @cps_entrust,perfectCAExtenVal,perfectCATransparency
 	
 	[ server_ext ]
 	keyUsage                = critical,digitalSignature,keyEncipherment
@@ -724,7 +726,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCADevice,perfectCATrustList,perfectCATransparency
 	
 	[ client_ext ]
 	keyUsage                = critical,digitalSignature
@@ -734,7 +736,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCADevice,perfectCATrustList,perfectCATransparency
 	
 	[ timestamp_ext ]
 	keyUsage                = critical,digitalSignature
@@ -744,7 +746,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCADevice,perfectCATrustList,perfectCATransparency
 	
 	[ ocspsign_ext ]
 	keyUsage                = critical,digitalSignature
@@ -754,7 +756,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	noCheck                 = null
-	certificatePolicies     = perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCADevice,perfectCATrustList,perfectCAOCSPResponse,perfectCATransparency
 	
 	[ cps_entrust ]
 	policyIdentifier =  2.16.840.1.114412.2.1
