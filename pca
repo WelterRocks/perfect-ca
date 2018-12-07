@@ -90,6 +90,10 @@ PCA_SERVER_BITS="4096"
 PCA_SERVER_MD="sha256"
 PCA_SERVER_SAN_DNS="verbotene.zone"
 
+PCA_EV_BITS="4096"
+PCA_EV_MD="sha256"
+PCA_EV_SAN_DNS="verbotene.zone"
+
 PCA_CLIENT_BITS="4096"
 PCA_CLIENT_MD="sha256"
 
@@ -487,7 +491,7 @@ function config_ca_section_policies()
 	commonName              = $mt_common_name
 	EOF
 	
-	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
+	if [ "$1" = "component-ca" ]; then
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
@@ -515,7 +519,7 @@ function config_ca_section_policies()
 	emailAddress            = $any_email_address
 	EOF
 	
-	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
+	if [ "$1" = "component-ca" ]; then
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
@@ -687,7 +691,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCATrustList,@cps_entrust,perfectCAExtenVal
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
 	[ encryption_ext ]
 	keyUsage                = critical,keyEncipherment
@@ -699,13 +703,19 @@ function config_ca_section_ext()
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
-	[ cps_entrust ]
-	policyIdentifier = 2.16.840.1.114412.2.1
-	CPS.1 = $PCA_BASE_PKI_URL/CPS
-
 	EOF
 	
 	[ "$component" = "1" ] && cat <<-EOF
+	[ ev_ext ]
+	keyUsage                = critical,digitalSignature,keyEncipherment
+	basicConstraints        = CA:false
+	extendedKeyUsage        = serverAuth,clientAuth
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @ocsp_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = @cps_entrust,perfectCAExtenVal
+	
 	[ server_ext ]
 	keyUsage                = critical,digitalSignature,keyEncipherment
 	basicConstraints        = CA:false
@@ -714,7 +724,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList,@cps_entrust,perfectCAExtenVal
+	certificatePolicies     = perfectCADevice,perfectCATrustList
 	
 	[ client_ext ]
 	keyUsage                = critical,digitalSignature
@@ -724,7 +734,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList,@cps_entrust,perfectCAExtenVal
+	certificatePolicies     = perfectCADevice,perfectCATrustList
 	
 	[ timestamp_ext ]
 	keyUsage                = critical,digitalSignature
@@ -851,15 +861,6 @@ function config_ca_tmpl_identity()
 	commonName_max          	= 64
 	emailAddress            	= "10. Email Address           (eg, name@fqdn)"
 	emailAddress_max        	= 40
-	serialNumber                    = "11. Serial number           (eg, 1234567)  "
-	businessCategory        	= "12. Business Category       (eg, private)  "
-	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionLocalityName        = "13. Inc. Locality Name      (eg, city)     "
-	jurisdictionLocalityName_default= "$PCA_DN_LOCALITYNAME"
-	jurisdictionStateOrProvinceName = "14. Inc. State or Prov.     (eg, reg.)     "
-	jurisdictionStateOrProvinceName_default= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionCountryName         = "15. Inc. Country            (eg, DE)       "
-	jurisdictionCountryName_default	= "$PCA_DN_COUNTRYNAME"
 	
 	[ identity_reqext ]
 	keyUsage                = critical,digitalSignature
@@ -914,8 +915,6 @@ function config_ca_tmpl_timestamp()
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
 	commonName_max          	= 64
-	businessCategory        	= "10. Business Category       (eg, private)  "
-	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
 	
 	[ timestamp_reqext ]
 	keyUsage                	= critical,digitalSignature
@@ -971,8 +970,6 @@ function config_ca_tmpl_encryption()
 	commonName_max          	= 64
 	emailAddress            	= "10. Email Address           (eg, name@fqdn)"
 	emailAddress_max        	= 40
-	businessCategory        	= "11. Business Category       (eg, private)  "
-	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
 	
 	[ encryption_reqext ]
 	keyUsage                	= critical,keyEncipherment
@@ -980,6 +977,70 @@ function config_ca_tmpl_encryption()
 	subjectKeyIdentifier    	= hash
 	subjectAltName          	= email:move
 	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+
+	EOF
+}
+
+function config_ca_tmpl_ev()
+{
+	cat <<-EOF
+	[ default ]
+	SAN                     	= DNS:$PCA_EV_SAN_DNS
+	openssl_conf			= openssl_init
+	
+	[ openssl_init ]
+	oid_section             	= include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+
+	[ req ]
+	default_bits            	= $PCA_EV_BITS
+	encrypt_key             	= no
+	default_md              	= $PCA_EV_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= ev_dn
+	req_extensions          	= ev_reqext
+	
+	[ ev_dn ]
+	countryName             	= "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_COMPONENTCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	commonName              	= "9. Common Name              (eg, full name)"
+	commonName_max          	= 64
+	serialNumber                    = "10. Serial number           (eg, 1234567)  "
+	businessCategory        	= "11. Business Category       (eg, private)  "
+	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionLocalityName        = "12. Inc. Locality Name      (eg, city)     "
+	jurisdictionLocalityName_default= "$PCA_DN_LOCALITYNAME"
+	jurisdictionStateOrProvinceName = "13. Inc. State or Prov.     (eg, reg.)     "
+	jurisdictionStateOrProvinceName_default= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionCountryName         = "14. Inc. Country            (eg, DE)       "
+	jurisdictionCountryName_default	= "$PCA_DN_COUNTRYNAME"
+	
+	[ ev_reqext ]
+	keyUsage                	= critical,digitalSignature,keyEncipherment
+	extendedKeyUsage        	= serverAuth,clientAuth
+	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	subjectKeyIdentifier    	= hash
+	subjectAltName          	= \$ENV::SAN
 
 	EOF
 }
@@ -1028,15 +1089,6 @@ function config_ca_tmpl_server()
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
 	commonName_max          	= 64
-	serialNumber                    = "10. Serial number           (eg, 1234567)  "
-	businessCategory        	= "11. Business Category       (eg, private)  "
-	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionLocalityName        = "12. Inc. Locality Name      (eg, city)     "
-	jurisdictionLocalityName_default= "$PCA_DN_LOCALITYNAME"
-	jurisdictionStateOrProvinceName = "13. Inc. State or Prov.     (eg, reg.)     "
-	jurisdictionStateOrProvinceName_default= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionCountryName         = "14. Inc. Country            (eg, DE)       "
-	jurisdictionCountryName_default	= "$PCA_DN_COUNTRYNAME"
 	
 	[ server_reqext ]
 	keyUsage                	= critical,digitalSignature,keyEncipherment
@@ -1091,15 +1143,6 @@ function config_ca_tmpl_client()
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
 	commonName_max          	= 64
-	serialNumber                    = "10. Serial number           (eg, 1234567)  "
-	businessCategory        	= "11. Business Category       (eg, private)  "
-	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionLocalityName        = "12. Inc. Locality Name      (eg, city)     "
-	jurisdictionLocalityName_default= "$PCA_DN_LOCALITYNAME"
-	jurisdictionStateOrProvinceName	= "13. Inc. State or Prov.     (eg, reg.)     "
-	jurisdictionStateOrProvinceName_default= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionCountryName         = "14. Inc. Country            (eg, DE)       "
-	jurisdictionCountryName_default	= "$PCA_DN_COUNTRYNAME"
 	
 	[ client_reqext ]
 	keyUsage                	= critical,digitalSignature
@@ -1141,6 +1184,10 @@ function configuration_write()
 	config_header "Encryption template" > $PCA_BASE_PATH/ca/conf/encryption.conf || return 2
 	config_ca_tmpl_encryption >> $PCA_BASE_PATH/ca/conf/encryption.conf
 	chmod 640 $PCA_BASE_PATH/ca/conf/encryption.conf >/dev/null 2>&1
+
+	config_header "Extended Validation template" > $PCA_BASE_PATH/ca/conf/ev.conf || return 2
+	config_ca_tmpl_ev >> $PCA_BASE_PATH/ca/conf/ev.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/ev.conf >/dev/null 2>&1
 
 	config_header "Server template" > $PCA_BASE_PATH/ca/conf/server.conf || return 2
 	config_ca_tmpl_server >> $PCA_BASE_PATH/ca/conf/server.conf
@@ -1215,6 +1262,7 @@ function help_context()
 	# --component-ca                   Use configuration for Component-CA.       #
 	# --identity-ca                    Use configuration for Identity-CA.        #
 	# --identity                       Use configuration for an identity cert.   #
+	# --ev                             Use configuration for extended validation.#
 	# --server                         Use configuration for a server cert.      #
 	# --client                         Use configuration for a client cert.      #
 	# --timestamp                      Use configuration for a timestamp cert.   #
@@ -1280,6 +1328,10 @@ function help_context()
 	#                                                                            #
 	# --client-bits [...]                                                        #
 	# --client-md [...]                                                          #
+	#                                                                            #
+	# --ev-bits [...]                                                            #
+	# --ev-md [...]                                                              #
+	# --ev-san-dns [...]                                                         #
 	#                                                                            #
 	# --server-bits [...]                                                        #
 	# --server-md [...]                                                          #
@@ -1628,6 +1680,18 @@ for arg in $*; do
 		;;
 		--encryption-md)
 			PCA_ENCRYPTION_MD="$2"
+			shift
+		;;
+		--ev-bits)
+			PCA_EV_BITS="$2"
+			shift
+		;;
+		--ev-md)
+			PCA_EV_MD="$2"
+			shift
+		;;
+		--ev-san-dns)
+			PCA_EV_SAN_DNS="$2"
 			shift
 		;;
 		--server-bits)
@@ -2046,7 +2110,7 @@ if [ "$PCA_OPMODE" = "create-request" -o "$PCA_OPMODE" = "create-certificate" ];
 	[ "$PCA_NODES" = "" ] || opts="-nodes $opts"
 	
 	case $PCA_USE_CONFIG in
-		identity|server|client|timestamp|encryption|ocspsign)
+		identity|ev|server|client|timestamp|encryption|ocspsign)
 			config="$PCA_BASE_PATH/ca/conf/$PCA_USE_CONFIG.conf"
 		;;
 		*)
@@ -2077,7 +2141,7 @@ if [ "$PCA_OPMODE" = "sign-request" -o "$PCA_OPMODE" = "create-certificate" ]; t
 	opts="" 
 	
 	case $PCA_USE_CONFIG in
-		server|client|timestamp|ocspsign)
+		ev|server|client|timestamp|ocspsign)
 			config="$PCA_BASE_PATH/ca/conf/component-ca.conf"
 			ext="${PCA_USE_CONFIG}_ext"
 			days="$PCA_COMPONENTCA_VALID_DAYS"
@@ -2149,7 +2213,7 @@ if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
 	opts=""
 	
 	case $PCA_USE_CONFIG in
-		server|client|timestamp|ocspsign)
+		ev|server|client|timestamp|ocspsign)
 			chain="component-chain.pem"
 			opts="-caname '$PCA_COMPONENTCA_ORG_UNIT_NAME' -caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
 		;;
