@@ -1,0 +1,9 @@
+[Unit]
+Description=Perfect-CA OCSP for Root-CA
+
+[Service]
+Type=simple
+ExecStart=/xbin/pca --ocsp-server 8880 --select-ca root-ca --filename ocsp-root-ca
+
+[Install]
+WantedBy=multi-user.target
