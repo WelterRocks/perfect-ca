@@ -279,6 +279,11 @@ function config_ca_section_default()
 	
 	cat <<-EOF
 	[ default ]
+	EOF
+	
+	[ "$1" = "component-ca" ] && echo "SAN                     = DNS:$PCA_BASE_URL"
+	
+	cat <<-EOF
 	ca                      = $1
 	dir                     = $PCA_BASE_PATH
 	base_url                = $PCA_BASE_PKI_URL
