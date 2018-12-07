@@ -1407,7 +1407,7 @@ for arg in $*; do
 			PCA_OPMODE="setup"
 		;;
 		--ocsp-server)
-			PCA_OPMODE="ocsp"
+			PCA_OPMODE="ocsp-server"
 			PCA_OCSP_PORT="$2"
 		;;
 		--force)
