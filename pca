@@ -488,7 +488,6 @@ function config_ca_section_policies()
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
-		jurisdictionOfIncorporationCountryName = optional
 		
 		EOF
 	else
@@ -514,7 +513,6 @@ function config_ca_section_policies()
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
-		jurisdictionOfIncorporationCountryName = optional
 		
 		EOF
 	else
