@@ -277,9 +277,7 @@ function config_ca_section_default()
 		;;
 	esac
 	
-	cat <<-EOF
-	[ default ]
-	EOF
+	echo "[ default ]"
 	
 	[ "$1" = "component-ca" ] && echo "SAN                     = DNS:$PCA_SERVER_SAN_DNS"
 	
