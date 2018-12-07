@@ -1220,7 +1220,8 @@ function help_context()
 	# ================                                                           #
 	#                                                                            #
 	# --setup                          Setup new certificate authorities.        #
-	# --ocsp-server [port]             Start OCSP server on [port] (def.: 8888). #
+	# --ocsp-server [port]             Start OCSP server on [port].              #
+	# --ocsp-verify [port]             Verify OCSP server on [port].             #
 	# --export-chain                   Export certificate chain of selected CA.  #
 	# --create-request                 Create a new certificate signing req.     #
 	# --sign-request                   Sign a previously created CSR.            #
@@ -1408,6 +1409,10 @@ for arg in $*; do
 		;;
 		--ocsp-server)
 			PCA_OPMODE="ocsp-server"
+			PCA_OCSP_PORT="$2"
+		;;
+		--ocsp-verify)
+			PCA_OPMODE="ocsp-verify"
 			PCA_OCSP_PORT="$2"
 		;;
 		--force)
@@ -2618,6 +2623,33 @@ if [ "$PCA_OPMODE" = "ocsp-server" ]; then
 fi
 
 # END OPMODE: OCSP-SERVER
+##########################
+
+##########################
+# OPMODE: OCSP-VERIFY
+
+if [ "$PCA_OPMODE" = "ocsp-verify" ]; then			
+	[ "$PCA_OCSP_PORT" = "" ] && error 3 "Missing OCSP server port"
+	[ "$PCA_FILENAME" = "" ] && error 4 "Missing filename for certificate to check against OCSP"
+	
+	case $PCA_SELECTED_CA in
+		root-ca|master-ca|network-ca|component-ca|identity-ca)
+			$PCA_OPENSSL ocsp \
+				-CAfile $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.crt \
+				-issuer $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.crt \
+				-cert $PCA_FILENAME \
+				-url http://localhost:$PCA_OCSP_PORT \
+				-resp_text
+		;;
+		*)
+			error 7 "Invalid CA selected"
+		;;
+	esac
+	
+	exit $?
+fi
+
+# END OPMODE: OCSP-VERIFY
 ##########################
 
 ##########################
