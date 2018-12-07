@@ -736,6 +736,7 @@ function config_ca_section_ext()
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = @cps_entrust,perfectCAExtenVal
+	subjectAltName		= \$ENV::SAN
 	
 	[ server_ext ]
 	keyUsage                = critical,digitalSignature,keyEncipherment
@@ -746,6 +747,7 @@ function config_ca_section_ext()
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = perfectCADevice,perfectCATrustList
+	subjectAltName		= \$ENV::SAN
 	
 	[ client_ext ]
 	keyUsage                = critical,digitalSignature
