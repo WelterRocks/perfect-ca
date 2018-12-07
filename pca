@@ -281,7 +281,7 @@ function config_ca_section_default()
 	[ default ]
 	EOF
 	
-	[ "$1" = "component-ca" ] && echo "SAN                     = DNS:$PCA_BASE_URL"
+	[ "$1" = "component-ca" ] && echo "SAN                     = DNS:$PCA_SERVER_SAN_DNS"
 	
 	cat <<-EOF
 	ca                      = $1
