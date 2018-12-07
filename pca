@@ -490,7 +490,7 @@ function config_ca_section_policies()
 	commonName              = $mt_common_name
 	EOF
 	
-	if [ "$1" = "component-ca" ]; then
+	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
@@ -518,7 +518,7 @@ function config_ca_section_policies()
 	emailAddress            = $any_email_address
 	EOF
 	
-	if [ "$1" = "component-ca" ]; then
+	if [ "$1" = "component-ca" -o "$1" = "identity-ca" ]; then
 		cat <<-EOF
 		businessCategory        = optional
 		serialNumber            = optional
@@ -690,7 +690,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCATrustList
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList,@entrust,2.23.140.1.1
 	
 	[ encryption_ext ]
 	keyUsage                = critical,keyEncipherment
@@ -702,6 +702,10 @@ function config_ca_section_ext()
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
+	[ entrust ]
+	policyIdentifier = 2.16.840.1.114028.10.1.2
+	CPS.1 = $PCA_BASE_PKI_URL/rpa
+
 	EOF
 	
 	[ "$component" = "1" ] && cat <<-EOF
@@ -723,7 +727,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCADevice,perfectCATrustList,@entrust,2.23.140.1.1
 	
 	[ timestamp_ext ]
 	keyUsage                = critical,digitalSignature
@@ -850,8 +854,15 @@ function config_ca_tmpl_identity()
 	commonName_max          	= 64
 	emailAddress            	= "10. Email Address           (eg, name@fqdn)"
 	emailAddress_max        	= 40
-	businessCategory        	= "11. Business Category       (eg, private)  "
+	serialNumber                    = "11. Serial number           (eg, 1234567)  "
+	businessCategory        	= "12. Business Category       (eg, private)  "
 	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionLocalityName         	= "13. Inc. Locality Name            (eg, city)"
+	jurisdictionLocalityName_default	= "$PCA_DN_LOCALITYNAME"
+	jurisdictionStateOrProvinceName  	= "14. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionCountryName          	= "15. Inc. Country                  (eg, DE)  "
+	jurisdictionCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ identity_reqext ]
 	keyUsage                = critical,digitalSignature
@@ -1023,12 +1034,12 @@ function config_ca_tmpl_server()
 	serialNumber                    = "10. Serial number           (eg, 1234567)  "
 	businessCategory        	= "11. Business Category       (eg, private)  "
 	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
-	jurisdictionOfIncorporationLocalityName         	= "12. Inc. Locality Name            (eg, city)"
-	jurisdictionOfIncorporationLocalityName_default		= "$PCA_DN_LOCALITYNAME"
-	jurisdictionOfIncorporationStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
-	jurisdictionOfIncorporationStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
-	jurisdictionOfIncorporationCountryName          	= "14. Inc. Country                  (eg, DE)  "
-	jurisdictionOfIncorporationCountryName_default		= "$PCA_DN_COUNTRYNAME"
+	jurisdictionLocalityName         	= "12. Inc. Locality Name            (eg, city)"
+	jurisdictionLocalityName_default	= "$PCA_DN_LOCALITYNAME"
+	jurisdictionStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionCountryName          	= "14. Inc. Country                  (eg, DE)  "
+	jurisdictionCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ server_reqext ]
 	keyUsage                	= critical,digitalSignature,keyEncipherment
@@ -1083,8 +1094,15 @@ function config_ca_tmpl_client()
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
 	commonName_max          	= 64
-	businessCategory        	= "10. Business Category       (eg, private)  "
+	serialNumber                    = "10. Serial number           (eg, 1234567)  "
+	businessCategory        	= "11. Business Category       (eg, private)  "
 	businessCategory_default	= "$PCA_DN_BUSINESSCATEGORY"
+	jurisdictionLocalityName         	= "12. Inc. Locality Name            (eg, city)"
+	jurisdictionLocalityName_default	= "$PCA_DN_LOCALITYNAME"
+	jurisdictionStateOrProvinceName  	= "13. Inc. State or Prov.           (eg, reg.)"
+	jurisdictionStateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	jurisdictionCountryName          	= "14. Inc. Country                  (eg, DE)  "
+	jurisdictionCountryName_default		= "$PCA_DN_COUNTRYNAME"
 	
 	[ client_reqext ]
 	keyUsage                	= critical,digitalSignature
