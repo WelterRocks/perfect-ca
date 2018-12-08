@@ -2724,7 +2724,7 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 		network-ca)
 			echo -n "" > $PCA_FILENAME
 			
-			for ca in $PCA_SELECTED_CA master-ca; do
+			for ca in master-ca $PCA_SELECTED_CA; do
 				$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
 			done
 			
@@ -2733,7 +2733,7 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 		identity-ca|component-ca)
 			echo -n "" > $PCA_FILENAME
 			
-			for ca in $PCA_SELECTED_CA network-ca master-ca; do
+			for ca in master-ca network-ca $PCA_SELECTED_CA; do
 				$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
 			done
 			
