@@ -529,13 +529,13 @@ function config_ca_section_policies()
 		EOF
 	elif [ "$1" = "identity-ca" ]; then
 		cat <<-EOF
-		givenName               = supplied
+		givenName               = optional
 		name                    = optional
-		surname                 = supplied
-		initials                = supplied
+		surname                 = optional
+		initials                = optional
 		pseudonym               = optional
 		telephoneNumber         = optional
-		serialNumber            = supplied
+		serialNumber            = optional
 		description             = optional
 
 		EOF
