@@ -2469,7 +2469,7 @@ if [ "$PCA_OPMODE" = "revoke" ]; then
 			
 	$PCA_OPENSSL ca \
 		-config $PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf \
-		-revoke $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/certs/$PCA_FILENAME.pem \
+		-revoke $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/certs/$PCA_FILENAME.crt \
 		-crl_reason $PCA_CRL_REASON
 	exit
 fi
