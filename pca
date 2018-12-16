@@ -2833,7 +2833,7 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 
 	withroot=""
 	
-	[ "$PCA_USE_CONFIG" = "root-ca" ] && withroot="root-ca"
+	[ "$PCA_USE_CONFIG" = "root_ca" ] && withroot="root-ca"
 
 	echo -n "[0;1;34;94mExporting chain of $PCA_SELECTED_CA...[0m"
 	case $PCA_SELECTED_CA in
