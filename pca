@@ -2831,6 +2831,10 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 	[ "$PCA_FILENAME" = "" ] && error 9 "Missing filename for export"
 	[ -e "$PCA_FILENAME" -a "$PCA_FORCE" = "" ] && error 8 "File $PCA_FILENAME exists. Use --force to overwrite."
 
+	withroot=""
+	
+	[ "$PCA_USE_CONFIG" = "root-ca" ] && withroot="root-ca"
+
 	echo -n "[0;1;34;94mExporting chain of $PCA_SELECTED_CA...[0m"
 	case $PCA_SELECTED_CA in
 		master-ca)
@@ -2843,8 +2847,8 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 		network-ca)
 			echo -n "" > $PCA_FILENAME
 			
-			for ca in master-ca $PCA_SELECTED_CA; do
-				$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
+			for ca in $PCA_SELECTED_CA master-ca $withroot; do
+				[ "$ca" = "" ] || $PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
 			done
 			
 			echo $OK
@@ -2852,8 +2856,8 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 		identity-ca|component-ca)
 			echo -n "" > $PCA_FILENAME
 			
-			for ca in master-ca network-ca $PCA_SELECTED_CA; do
-				$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
+			for ca in $PCA_SELECTED_CA network-ca master-ca $withroot; do
+				[ "$ca" = "" ] || $PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
 			done
 			
 			echo $OK
