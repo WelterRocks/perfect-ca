@@ -23,22 +23,25 @@ Identity-CA & Component-CA are signed by Network-CA.
 Network-CA is signed by Master-CA.
 Master-CA is signed by Offline Root-CA.
 
---
 
 ## How to setup
 
 After downloading and login as root, copy the file named *pca* to /usr/bin and chmod it to 755.
 Than, create a pki store, copy your *pcarc* file to it and edit *pcarc* to your needs.
 
+<pre><code>
  cp pca /usr/bin
  chmod 755 /usr/bin/pca
  mkdir -p /etc/pki
  cp etc-samples/pki/pcarc /etc/pki
+</code></pre>
 
 Because *joe* is my favorite editor, I will use joe in my examples. Feel
 free to use nano, vi, or something else that fit your needs.
 
+<pre><code>
  joe /etc/pki/pcarc
+</code></pre>
 
 After you set /etc/pki/pcarc (for extended validation to work, do not
 change the suggested encryption settings to higher values) to your needed
@@ -46,7 +49,9 @@ values, you can start the Perfect-CA setup routine. Be sure /etc/pki/ca is
 unused and empty for this example, because pca will probably overwrite
 things in there. To setup Perfect-CA, simply do
 
+<pre><code>
  /usr/bin/pca --setup
+</code></pre>
 
 and wait for the command to finish. If anything went wrong, the pca tool
 will let you know and you first have to fix this. If things went well, you
@@ -58,6 +63,7 @@ Offline-Root-CA is not needed, you can leave the key, where it is.
 In any case, the pca tool will tell you, what to do next. And next, you
 should create OCSP signing certificates and your online responder services.
 
+<pre><code>
  pca --create-certificate --skip-pkcs12 --ocspsign --root-ca --filename ocsp-root-ca
  pca --create-ocsp-systemd-service --root-ca > /lib/systemd/system/pca-root-ca-ocsp.service
  
@@ -72,13 +78,17 @@ should create OCSP signing certificates and your online responder services.
  
  pca --create-certificate --skip-pkcs12 --ocspsign --identity-ca --filename ocsp-identity-ca
  pca --create-ocsp-systemd-service --identity-ca > /lib/systemd/system/pca-identity-ca-ocsp.service
+</code></pre>
  
 After all, reload your systemd:
 
+<pre><code>
  systemctl daemon-reload
+</code></pre>
 
 After daemon reload is done, you can enable and start your online-responders, with:
 
+<pre><code>
  systemctl enable pca-root-ca-ocsp
  systemctl start pca-root-ca-ocsp
  systemctl enable pca-master-ca-ocsp
@@ -89,41 +99,56 @@ After daemon reload is done, you can enable and start your online-responders, wi
  systemctl start pca-component-ca-ocsp
  systemctl enable pca-identity-ca-ocsp
  systemctl start pca-identity-ca-ocsp
+</code></pre>
 
 Than, create and install the CA maintainance crontab, using this command:
 
+<pre><code>
  pca --create-crontab > /etc/cron.d/perfect-ca
+</code></pre>
 
 At least, you can create your first EV certificate, using this command
 (change your-hostname to your systems FQDN):
 
+<pre><code>
  pca --create-certificate --ev --export-san "DNS:your-hostname" --filename your-hostname
+</code></pre>
 
 Or without extended validation (EV) and without generating an additional pkcs12 file
 in place:
 
+<pre><code>
  pca --create-certificate --server --skip-pkcs12 --filename your-hostname
+</code></pre>
 
 And if you want to create your first identity certificate (e.g. to access
 TLS-Client-Cert protected websites or your XMPP host):
 
+<pre><code>
  pca --create-certificate --identity --filename your-name
+</code></pre>
 
 If you want to check the validity of your newly generated certificate, do:
 
+<pre><code>
  pca --validate --filename your-hostname.pem
+</code></pre>
 
 You can also validate the certificate using openssl command. This is nearly
 the same check, except that openssl is using the system certificates to
 verify the validity of your given certificate. Also you can test, if your
 system certificate store has successfully hashed your new Perfect-CA.
 
+<pre><code>
  openssl verify /etc/pki/ca/certs/your-hostname.pem
+</code></pre>
 
 If the result is *not OK*, you should rehash your system certificate store,
 using
 
+<pre><code>
  c_rehash
+</code></pre>
 
 and try the above openssl command again. After rehashing (what pca cronjob
 should do from time to time), your certificates should by verified as valid
@@ -136,11 +161,12 @@ rotation time. By default, backups are held for 7 days. It is highly
 recommended, that you change the backup key in your pcarc file. If you have
 installed makepasswd utility, you can create a secure key, using this:
 
+<pre><code>
  makepasswd --chars=32
+</code></pre>
 
 Your Multi-Level-Offline-Root-PKI should be ready to work at this point.
 
---
 
 ## TODO
 
