@@ -1,10 +1,21 @@
 # /etc/pki/pcarc sample
 
+PCA_BACKUP_PATH="/var/backup/pki"
+PCA_BACKUP_KEY="ADI2E2FeyCbxQdV5MqACjR9mPv0qw1Cg"
+PCA_BACKUP_ROTATE_DAYS="7"
+
 PCA_BASE_PATH="/etc/pki"
 PCA_BASE_NAME="Perfect-CA"
-PCA_BASE_OCSP_URL="http://ocsp.verbotene.zone"
-PCA_BASE_PKI_URL="http://pki.verbotene.zone"
-PCA_BASE_TRUSTLIST_URL="https://pki.verbotene.zone/trustList.etl"
+PCA_BASE_OCSP_HOSTNAME="ocsp.my.domain"
+PCA_BASE_OCSP_URL="http://ocsp.my.domain"
+PCA_BASE_PKI_URL="http://pki.my.domain"
+PCA_BASE_TRUSTLIST_URL="http://pki.my.domain/trustList.etl"
+PCA_BASE_CPS_URL="http://pki.my.domain/CPS"
+PCA_BASE_RANDOM_EV_OID="2.23.140.1.8.66141.2"
+PCA_BASE_CPS_POLICY_OID="1.2.276.2.1.3.1.3.3.7"
+PCA_BASE_ETL_POLICY_OID="2.16.840.1.113730.1.900"
+PCA_BASE_XMPPDOMAIN="my.domain"
+PCA_BASE_XMPPHOST="xmpp.my.domain"
 
 PCA_DN_COUNTRYNAME="DE"
 PCA_DN_STATEORPROVINCENAME="Hessen"
@@ -61,11 +72,11 @@ PCA_ENCRYPTION_MD="sha256"
 
 PCA_EV_BITS="4096"
 PCA_EV_MD="sha256"
-PCA_EV_SAN_DNS="verbotene.zone"
+PCA_EV_SAN_DNS="welter.rocks"
 
 PCA_SERVER_BITS="4096"
 PCA_SERVER_MD="sha256"
-PCA_SERVER_SAN_DNS="verbotene.zone"
+PCA_SERVER_SAN_DNS="welter.rocks"
 
 PCA_CLIENT_BITS="4096"
 PCA_CLIENT_MD="sha256"
@@ -74,3 +85,4 @@ PCA_IDENTITY_BITS="4096"
 PCA_IDENTITY_MD="sha256"
 
 PCA_SSL_CERTS="/etc/ssl/certs"
+PCA_SSL_CA="/etc/ssl/ca"

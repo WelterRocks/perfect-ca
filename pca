@@ -32,11 +32,22 @@ function license()
 ##########################
 # BASIC CONFIGRATION
 
+PCA_BACKUP_PATH="/var/backup/pki"
+PCA_BACKUP_KEY="ADI2E2FeyCbxQdV5MqACjR9mPv0qw1Cg"
+PCA_BACKUP_ROTATE_DAYS="7"
+
 PCA_BASE_PATH="/etc/pki"
 PCA_BASE_NAME="Perfect-CA"
-PCA_BASE_OCSP_URL="http://ocsp.verbotene.zone"
-PCA_BASE_PKI_URL="http://pki.verbotene.zone"
-PCA_BASE_TRUSTLIST_URL="https://pki.verbotene.zone/trustList.etl"
+PCA_BASE_OCSP_HOSTNAME="ocsp.my.domain"
+PCA_BASE_OCSP_URL="http://ocsp.my.domain"
+PCA_BASE_PKI_URL="http://pki.my.domain"
+PCA_BASE_TRUSTLIST_URL="http://pki.my.domain/trustList.etl"
+PCA_BASE_CPS_URL="http://pki.my.domain/CPS"
+PCA_BASE_RANDOM_EV_OID="2.23.140.1.8.66141.2"
+PCA_BASE_CPS_POLICY_OID="1.2.276.2.1.3.1.3.3.7"
+PCA_BASE_ETL_POLICY_OID="2.16.840.1.113730.1.900"
+PCA_BASE_XMPPDOMAIN="my.domain"
+PCA_BASE_XMPPHOST="xmpp.my.domain"
 
 PCA_DN_COUNTRYNAME="DE"
 PCA_DN_STATEORPROVINCENAME="Hessen"
@@ -45,7 +56,7 @@ PCA_DN_STREETADDRESS="Musterstrasse 123"
 PCA_DN_POSTALCODE="12345"
 PCA_DN_OWNER="Oliver Welter"
 PCA_DN_ORGANIZATIONNAME="Musterfirma"
-PCA_DN_BUSINESSCATEGORY="private"
+PCA_DN_BUSINESSCATEGORY="Private"
 
 PCA_ROOTCA_BITS="2048"
 PCA_ROOTCA_MD="sha256"
@@ -93,11 +104,11 @@ PCA_ENCRYPTION_MD="sha256"
 
 PCA_SERVER_BITS="4096"
 PCA_SERVER_MD="sha256"
-PCA_SERVER_SAN_DNS="verbotene.zone"
+PCA_SERVER_SAN_DNS="welter.rocks"
 
 PCA_EV_BITS="4096"
 PCA_EV_MD="sha256"
-PCA_EV_SAN_DNS="verbotene.zone"
+PCA_EV_SAN_DNS="welter.rocks"
 
 PCA_CLIENT_BITS="4096"
 PCA_CLIENT_MD="sha256"
@@ -111,17 +122,18 @@ PCA_SMIME_MD="sha256"
 PCA_GRACEDAYS="14"
 
 PCA_SSL_CERTS="/etc/ssl/certs"
+PCA_SSL_CA="/etc/ssl/ca"
 PCA_OPENSSL="/usr/bin/openssl"
+PCA_C_REHASH="/usr/bin/c_rehash"
+PCA_TAR="/usr/bin/tar"
+PCA_AWK="/usr/bin/awk"
+PCA_MD5SUM="/usr/bin/md5sum"
+PCA_MKTEMP="/usr/bin/mktemp"
+PCA_REALPATH="/usr/bin/realpath"
+PCA_GIT="/usr/bin/git"
 
 [ -f "$PCA_BASE_PATH/pcarc" ] && . $PCA_BASE_PATH/pcarc
 [ -f "~/.pcarc" ] && . ~/.pcarc
-
-[ -x "$PCA_OPENSSL" ] || PCA_OPENSSL=`which openssl 2>/dev/null`
-[ -x "$PCA_OPENSSL" ] || error 1 "Missing OpenSSL"
-
-PCA_GITHUB="https://github.com/VerboteneZone/perfect-ca"
-PCA_PROGNAME="pca"
-PCA_VERSION="1.01.1033"
 
 # END BASIC CONFIGURATION
 ##########################
@@ -134,11 +146,73 @@ OK="[0;1;32;92mOK[0m"
 
 function error()
 {
-	echo "[0;1;31;91mERROR:[0m [0;1;32;93m$2[0m"
+	echo -e "[0;1;31;91mERROR:[0m [0;1;32;93m$2[0m"
 	exit $1
 }
 
 # END ERROR FUNCTION
+##########################
+
+##########################
+# SANITY CHECKS
+
+[ -x "$PCA_OPENSSL" ] || PCA_OPENSSL=`which openssl 2>/dev/null`
+[ -x "$PCA_OPENSSL" ] || error 1 "Missing OpenSSL"
+
+[ -x "$PCA_C_REHASH" ] || PCA_C_REHASH=`which c_rehash 2>/dev/null`
+[ -x "$PCA_C_REHASH" ] || error 1 "Missing c_rehash"
+
+[ -x "$PCA_TAR" ] || PCA_TAR=`which tar 2>/dev/null`
+[ -x "$PCA_TAR" ] || error 1 "Missing tar"
+
+[ -x "$PCA_AWK" ] || PCA_AWK=`which awk 2>/dev/null`
+[ -x "$PCA_AWK" ] || error 1 "Missing awk"
+
+[ -x "$PCA_MD5SUM" ] || PCA_MD5SUM=`which md5sum 2>/dev/null`
+[ -x "$PCA_MD5SUM" ] || error 1 "Missing md5sum"
+
+[ -x "$PCA_MKTEMP" ] || PCA_MKTEMP=`which mktemp 2>/dev/null`
+[ -x "$PCA_MKTEMP" ] || error 1 "Missing mktemp"
+
+[ -x "$PCA_REALPATH" ] || PCA_REALPATH=`which realpath 2>/dev/null`
+[ -x "$PCA_REALPATH" ] || error 1 "Missing realpath"
+
+[ -d "$PCA_SSL_CERTS" ] || mkdir -p "$PCA_SSL_CERTS" >/dev/null 2>&1
+[ -d "$PCA_SSL_CA" ] || mkdir -p "$PCA_SSL_CA" >/dev/null 2>&1
+[ -d "$PCA_BACKUP_PATH" ] || mkdir -p "$PCA_BACKUP_PATH" >/dev/null 2>&1
+
+PCA_GITHUB="https://github.com/WelterRocks/perfect-ca"
+PCA_PROGNAME="pca"
+PCA_VERSION="1.03.1244"
+PCA_REALCMD=`$PCA_REALPATH $0`
+
+PCA_SSL_VERSION=`$PCA_OPENSSL version | $PCA_AWK '{print $2}'`
+PCA_SSL_VERSION_NUMBER=`echo $PCA_SSL_VERSION | $PCA_AWK '{if (match($0, /[a-z]/)) {print substr($1, 0, RSTART - 1)}}'`
+PCA_SKIP_VERSION_CHECK=`echo "$*" | $PCA_AWK '{if (match($0, /\-\-skip\-version\-check/)) {print $1}}'`
+
+PCA_SYSTEM=`uname -romv`
+PCA_HASHCODE="unsupported, due to skipped version check"
+
+if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
+	case $PCA_SSL_VERSION_NUMBER in
+		1.0.1)
+			if [ "$PCA_SSL_VERSION" != "1.0.1g" ]; then
+				error 99 "Your openssl version $PCA_SSL_VERSION is affected by the heartbleed bug.\nYou can disable this check by using --skip-ssl-version-check"
+			fi
+		;;
+		1.0.0|1.1.1)
+			PCA_HASHCODE=`echo "$PCA_SYSTEM $PCA_VERSION $PCA_SSL_VERSION" | $PCA_OPENSSL sha1 | $PCA_AWK '{print $2}'`
+		;;
+		0.9.6|0.9.7|0.9.8)
+			error 97 "Your openssl version $PCA_SSL_VERSION is not working with Perfect-CA.\nYou can disable this check by using --skip-ssl-version-check"
+		;;
+		*)
+			error 98 "Your openssl version $PCA_SSL_VERSION has not been tested with Perfect-CA, yet.\nYou can disable this check by using --skip-ssl-version-check"
+		;;
+	esac
+fi
+
+# END SANITY CHECKS
 ##########################
 
 ##########################
@@ -147,7 +221,7 @@ function error()
 function version()
 {
 	if [ "$1" = "" ];  then
-		echo "[0;1;32;93mVersion: $PCA_VERSION[0m"
+		echo -e "[0;1;32;93mPerfect-CA $PCA_VERSION using `$PCA_OPENSSL version` on\n$PCA_SYSTEM\nSystem-Hashcode: $PCA_HASHCODE[0m"
 		exit 253
 	elif [ "$1" = "raw" ]; then
 		echo $PCA_VERSION
@@ -230,7 +304,7 @@ function config_header()
 	# |  __/  __/ |  |  _|  __/ (__| ||_____| |___ / ___ \  #
 	# |_|   \___|_|  |_|  \___|\___|\__|     \____/_/   \_\ #
 	#                                                       #
-	# https://github.com/VerboteneZone/perfect-ca           #
+	# https://github.com/WelterRocks/perfect-ca             #
 	#                                                       #
 	#########################################################
 	# $ident
@@ -289,7 +363,7 @@ function config_ca_section_default()
 	dir                     = $PCA_BASE_PATH
 	base_url                = $PCA_BASE_PKI_URL
 	ocsp_url		= $PCA_BASE_OCSP_URL:$ocsp_port
-	aia_url                 = \$base_url/\$ca.cer
+	aia_url                 = \$base_url/\$ca.crt
 	crl_url                 = \$base_url/\$ca.crl
 	name_opt                = multiline,-esc_msb,utf8
 	openssl_conf            = openssl_init
@@ -299,13 +373,12 @@ function config_ca_section_default()
 	
 	[ include_oids ]
 	perfectCAExtenVal       = $PCA_BASE_NAME Extended Validation, 2.23.140.1.1
-	perfectCAAssurance      = $PCA_BASE_NAME Assurance, 1.3.6.1.4.1.0.1.7.8
-	
+	perfectCAEVRandomOID	= $PCA_BASE_NAME EV Random OID, $PCA_BASE_RANDOM_EV_OID
 	EOF
 	
 	[ "$assurance" = "1" ] && echo "perfectCAAssurance      = $PCA_BASE_NAME Assurance, 1.3.6.1.4.1.0.1.7.8"
 	[ "$deviceass" = "1" ] && echo "perfectCADevice         = $PCA_BASE_NAME Device Assurance, 1.3.6.1.4.1.0.1.7.9"
-	[ "$trustlist" = "1" ] && echo "perfectCATrustList      = $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900"
+	[ "$trustlist" = "1" ] && echo "perfectCATrustList      = $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID"
 	
 	echo ""
 }
@@ -638,10 +711,10 @@ function config_ca_section_operational()
 	default_ca              = $default_ca
 	
 	[ $default_ca ]
-	certificate             = \$dir/ca/certs/\$ca.crt
+	certificate             = \$dir/ca/certs/\$ca.pem
 	private_key             = \$dir/ca/\$ca/private/\$ca.key
 	new_certs_dir           = \$dir/ca/\$ca/certs
-	serial                  = \$dir/ca/\$ca/db/\$ca.crt.srl
+	serial                  = \$dir/ca/\$ca/db/\$ca.pem.srl
 	crlnumber               = \$dir/ca/\$ca/db/\$ca.crl.srl
 	database                = \$dir/ca/\$ca/db/\$ca.db
 	unique_subject          = no
@@ -708,7 +781,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
 
 	EOF
 	
@@ -720,7 +793,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
 	
 	[ signing_ca_ext ]
 	keyUsage                = critical,keyCertSign,cRLSign
@@ -729,7 +802,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
 		
 	EOF
 	
@@ -775,7 +848,7 @@ function config_ca_section_ext()
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @ocsp_info
 	crlDistributionPoints   = @crl_info
-	certificatePolicies     = @cps_entrust,perfectCAExtenVal
+	certificatePolicies     = @cps_entrust,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
 	subjectAltName		= \$ENV::SAN
 	
 	[ server_ext ]
@@ -820,8 +893,8 @@ function config_ca_section_ext()
 	certificatePolicies     = perfectCADevice,perfectCATrustList
 	
 	[ cps_entrust ]
-	policyIdentifier =  2.16.840.1.114412.2.1
-	CPS.1 = $PCA_BASE_PKI_URL/CPS
+	policyIdentifier = $PCA_BASE_CPS_POLICY_OID
+	CPS.1 = $PCA_BASE_CPS_URL
 
 	EOF
 }
@@ -836,7 +909,7 @@ function config_ca_tmpl_ocspsign()
 	oid_section     	        = include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
 
 	[ req ]
 	default_bits            	= $PCA_OCSPSIGN_BITS
@@ -889,7 +962,9 @@ function config_ca_tmpl_identity()
 	oid_section             	= include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
+	perfectCAServiceEntry		= $PCA_BASE_NAME Service Entry, 1.3.6.1.5.5.7.8.7
+	perfectCAXMPPJID		= $PCA_BASE_NAME XMPP JID, 1.3.6.1.5.5.7.8.5
 
 	[ req ]
 	default_bits            	= $PCA_IDENTITY_BITS
@@ -925,22 +1000,39 @@ function config_ca_tmpl_identity()
 	surname                         = "11. Last Name               (eg, Welter)   "
 	initials                        = "12. Initials                (eg, OW)       "
 	pseudonym                       = "13. Pseudonym               (eg, username) "
-	commonName              	= "14. Common Name             (eg, full name)"
+	commonName              	= "14. Common Name             (eg, XMPP-JID) "
 	commonName_max          	= 64
 	emailAddress            	= "15. Email Address           (eg, name@fqdn)"
 	emailAddress_max        	= 40
 	telephoneNumber                 = "16. Telephone Number        (eg, 555-12345)"
 	serialNumber                    = "17. Birthdate               (eg 2018-12-31)"
-	description                     = "18. Description                            "
+	description                     = "18. Description             (MAC-Addr@VLAN)"
 	
 	[ identity_reqext ]
 	keyUsage                = critical,digitalSignature
 	extendedKeyUsage        = emailProtection,clientAuth
-	subjectKeyIdentifier    = hash
-	subjectAltName          = email:move
 	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
-
+	subjectKeyIdentifier    = hash
+	subjectAltName          = @subj_alt_name
+	
+	[ subj_alt_name ]
 	EOF
+	
+	if [ "$PCA_BASE_XMPPHOST" != "" ]; then
+	cat <<-EOF
+	DNS.0			= $PCA_BASE_XMPPDOMAIN
+	DNS.1			= $PCA_BASE_XMPPHOST
+	otherName.0             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpp-server.$PCA_BASE_XMPPHOST
+	otherName.1             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpp-client.$PCA_BASE_XMPPHOST
+	otherName.2             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpps-server.$PCA_BASE_XMPPHOST
+	otherName.3             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpps-client.$PCA_BASE_XMPPHOST
+	otherName.4             = perfectCAXMPPJID;FORMAT:UTF8,UTF8:\${identity_dn::commonName}
+	EOF
+	else
+	cat <<-EOF
+	DNS			= $PCA_BASE_XMPPDOMAIN
+	EOF
+	fi
 }
 
 function config_ca_tmpl_timestamp()
@@ -953,7 +1045,7 @@ function config_ca_tmpl_timestamp()
 	oid_section             	= include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
 
 	[ req ]
 	default_bits            	= $PCA_TIMESTAMP_BITS
@@ -1006,7 +1098,7 @@ function config_ca_tmpl_encryption()
 	oid_section             	= include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
 
 	[ req ]
 	default_bits            	= $PCA_ENCRYPTION_BITS
@@ -1062,7 +1154,7 @@ function config_ca_tmpl_smime()
 	oid_section             	= include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
 
 	[ req ]
 	default_bits            	= $PCA_SMIME_BITS
@@ -1119,7 +1211,9 @@ function config_ca_tmpl_ev()
 	oid_section             	= include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
+        perfectCAExtenVal       	= $PCA_BASE_NAME Extended Validation, 2.23.140.1.1
+        perfectCAEVRandomOID    	= $PCA_BASE_NAME EV Random OID, $PCA_BASE_RANDOM_EV_OID
 
 	[ req ]
 	default_bits            	= $PCA_EV_BITS
@@ -1166,6 +1260,7 @@ function config_ca_tmpl_ev()
 	keyUsage                	= critical,digitalSignature,keyEncipherment
 	extendedKeyUsage        	= serverAuth,clientAuth
 	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	certificatePolicies     	= perfectCAExtenVal,perfectCAEVRandomOID
 	subjectKeyIdentifier    	= hash
 	subjectAltName          	= \$ENV::SAN
 
@@ -1183,7 +1278,7 @@ function config_ca_tmpl_server()
 	oid_section             	= include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
 
 	[ req ]
 	default_bits            	= $PCA_SERVER_BITS
@@ -1237,7 +1332,7 @@ function config_ca_tmpl_client()
 	oid_section             	= include_oids
 
 	[ include_oids ]
-	perfectCATrustList      	= $PCA_BASE_NAME Trust List, 2.16.840.1.113730.1.900
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
 
 	[ req ]
 	default_bits            	= $PCA_CLIENT_BITS
@@ -1343,7 +1438,32 @@ function help_context()
 	# Help and information:                                                      #
 	# =====================                                                      #
 	#                                                                            #
-	# --help                           Show this help context.                   #
+	# --help                           Show (this) help context.                 #
+	# --help-switches                  Show useable switches.                    #
+	#                                                                            #
+	# --license                        Show license information.                 #
+	# --version                        Show version information                  #
+	#                                                                            #
+	##############################################################################
+	EOF
+}
+
+# END HELP CONTEXT
+##########################
+
+##########################
+# HELP SWITCHES
+
+function help_switches()
+{
+	cat <<-EOF
+	##############################################################################
+	#                                                                            #
+	# Help and information:                                                      #
+	# =====================                                                      #
+	#                                                                            #
+	# --help                           Show help context.                        #
+	# --help-switches                  Show useable switches (this).             #
 	# --license                        Show license information.                 #
 	# --version                        Show version information                  #
 	#                                                                            #
@@ -1366,6 +1486,10 @@ function help_context()
 	# --validate                       Verify a given certificate file.          #
 	# --update                         Check for updates on GitHub.              #
 	# --install                        Install available updates from GitHub.    #
+	# --create-crontab                 Create (show) the CA maintain crontab.    #
+	# --create-ocsp-systemd-service    Create (show) an ocsp systemd service.    #
+	# --backup                         Backup the current certificate authority. #
+	# --restore                        Restore the given certificate authority.  #
 	#                                                                            #
 	# Generic switches:                                                          #
 	# =================                                                          #
@@ -1385,10 +1509,13 @@ function help_context()
 	#                                  component-ca (default) or identity-ca     #
 	# --rc [rcfile]                    Use alternate resource control file.      #
 	# --ssl-certs [path]               Path to systems SSL database.             #
+	# --ssl-ca [path]                  Path to systems SSL CA subdirectory.      #
+	# --export-san [data]              Export SAN variable with given data.      #
 	#                                                                            #
 	# Set configuration to use:                                                  #
 	# =========================                                                  #
 	# (needed for create-request, sign-request and pkcs12)                       #
+	# (--xxx-ca can be used as a shortcut for --select-ca when using --revoke)   #
 	#                                                                            #
 	# --root-ca                        Use configuration for Root-CA.            #
 	# --master-ca                      Use configuration for Master-CA.          #
@@ -1530,6 +1657,10 @@ for arg in $*; do
 			help_context
 			exit 255
 		;;
+		--help-switches)
+			help_switches
+			exit 254
+		;;
 		--version)
 			check_version="$2"
 			shift
@@ -1565,6 +1696,12 @@ for arg in $*; do
 		--install)
 			PCA_OPMODE="install"
 		;;
+		--backup)
+			PCA_OPMODE="backup"
+		;;
+		--restore)
+			PCA_OPMODE="restore"
+		;;
 		--days)
 			PCA_DAYS="$2"
 			shift
@@ -1588,6 +1725,33 @@ for arg in $*; do
 		--select-ca)
 			PCA_SELECTED_CA="$2"
 			shift
+		;;
+		--identity-ca)
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+				PCA_SELECTED_CA="identity-ca"
+			fi			
+		;;
+		--component-ca)
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+				PCA_SELECTED_CA="component-ca"
+			fi			
+		;;
+		--network-ca)
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+				PCA_SELECTED_CA="network-ca"
+			fi			
+		;;
+		--master-ca)
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+				PCA_SELECTED_CA="master-ca"
+			fi			
+			PCA_USE_CONFIG="master_ca"
+		;;
+		--root-ca)
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" -o "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
+				PCA_SELECTED_CA="root-ca"
+			fi			
+			PCA_USE_CONFIG="root_ca"
 		;;
 		--update-crl)
 		 	PCA_OPMODE="update-crl"
@@ -1621,12 +1785,6 @@ for arg in $*; do
 		--filename)
 			PCA_FILENAME="$2"
 			shift
-		;;
-		--root-ca)
-			PCA_USE_CONFIG="root_ca"
-		;;
-		--master-ca)
-			PCA_USE_CONFIG="master_ca"
 		;;
 		--signing-ca)
 			PCA_USE_CONFIG="signing_ca"
@@ -1920,6 +2078,20 @@ for arg in $*; do
 			PCA_SSL_CERTS="$2"
 			shift
 		;;
+		--ssl-ca)
+			PCA_SSL_CA="$2"
+			shift
+		;;
+		--export-san)
+			export SAN="$2"
+			shift
+		;;
+		--create-crontab)
+			PCA_OPMODE="create-crontab"
+		;;
+		--create-ocsp-systemd-service)
+			PCA_OPMODE="create-ocsp-sysd"
+		;;
 	esac
 	
 	shift
@@ -1927,7 +2099,7 @@ done
 
 cat <<-EOF
  [0;1;34;94mCopyright (c) 2018 [0;1;32;92mOliver Welter[0;1;34;94m <[0;1;36;96moliver@welter.rocks[0;1;34;94m>[0m
- [0;1;34;94mSee [0;1;32;93mhttps://github.com/VerboteneZone/perfect-ca[0;1;34;94m for details.[0m
+ [0;1;34;94mSee [0;1;32;93mhttps://github.com/WelterRocks/perfect-ca[0;1;34;94m for details.[0m
 
 EOF
 
@@ -1941,21 +2113,147 @@ EOF
 # END CLI ARGUMENTS
 ##########################
 
+##############################
+# OPMODE: CREATE-OCSP-SYSD
+
+if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
+	config_header /lib/systemd/system/$PCA_PROGNAME-$PCA_SELECTED_CA-ocsp.service
+	case $PCA_SELECTED_CA in
+		root-ca)
+		cat <<-EOF	
+		[Unit]
+		Description=Perfect-CA OCSP for Root-CA
+		
+		[Service]
+		Type=simple
+		ExecStart=$PCA_REALCMD --ocsp-server 8880 --root-ca --filename ocsp-root-ca
+		EOF
+		;;
+		master-ca)
+		cat <<-EOF	
+		[Unit]
+		Description=Perfect-CA OCSP for Master-CA
+		
+		[Service]
+		Type=simple
+		ExecStart=$PCA_REALCMD --ocsp-server 8881 --master-ca --filename ocsp-master-ca
+		EOF
+		;;
+		network-ca)
+		cat <<-EOF	
+		[Unit]
+		Description=Perfect-CA OCSP for Network-CA
+		
+		[Service]
+		Type=simple
+		ExecStart=$PCA_REALCMD --ocsp-server 8882 --network-ca --filename ocsp-network-ca
+		EOF
+		;;
+		component-ca)
+		cat <<-EOF	
+		[Unit]
+		Description=Perfect-CA OCSP for Component-CA
+		
+		[Service]
+		Type=simple
+		ExecStart=$PCA_REALCMD --ocsp-server 8883 --component-ca --filename ocsp-component-ca
+		EOF
+		;;
+		identity-ca)
+		cat <<-EOF	
+		[Unit]
+		Description=Perfect-CA OCSP for Identity-CA
+		
+		[Service]
+		Type=simple
+		ExecStart=$PCA_REALCMD --ocsp-server 8884 --identity-ca --filename ocsp-identity-ca
+		EOF
+		;;
+		*)
+		error 2 "Unknown CA selected"
+		;;
+	esac
+	
+	cat <<-EOF	
+	
+	[Install]
+	WantedBy=multi-user.target
+	EOF
+	exit
+fi
+
+# END OPMODE: CREATE-OCSP-SYSD
+##############################
+
+############################
+# OPMODE: CREATE-CRONTAB
+
+if [ "$PCA_OPMODE" = "create-crontab" ]; then
+	config_header /etc/cron.d/perfect-ca
+	cat <<-EOF	
+	# Daily at 00:10, backup the CA
+	10 0 * * * $PCA_REALCMD --backup >/dev/null 2>&1
+	
+	# Daily at 00:11, Check and renew the CA certificates, if neccessary
+	11 0 * * * $PCA_REALCMD --renew-ca >/dev/null 2>&1
+	
+	# Daily at 00:12, update certificate revocation list of the Root-CA
+	12 0 * * * $PCA_REALCMD --update-crl --root-ca >/dev/null 2>&1
+
+	# Daily at 00:13 and 12:13, update certificate revocation list of the Master-CA
+	13 */12 * * * $PCA_REALCMD --update-crl --master-ca >/dev/null 2>&1
+	
+	# Daily at 00:14, 06:14, 12:14 and 18:14, update certificate revocation list of the Network-CA
+	14 */6 * * * $PCA_REALCMD --update-crl --network-ca >/dev/null 2>&1
+	
+	# Daily, each hour from 00:15 on, update certificate revocation list of the Component-CA and from 00:16 on from the Identity-CA
+	15 * * * * $PCA_REALCMD --update-crl --component-ca >/dev/null 2>&1
+	16 * * * * $PCA_REALCMD --update-crl --identity-ca >/dev/null 2>&1
+
+	# Daily, from 00:17 to 00:20, export the certificate chains, including the Root-CA certificate and also convert them to pkcs7
+	17 0 * * * $PCA_REALCMD --export-chain --root-ca --select-ca master-ca --filename $PCA_SSL_CA/master-chain.pem --force >/dev/null 2>&1 && $PCA_OPENSSL x509 -in $PCA_SSL_CA/master-chain.pem -out $PCA_SSL_CA/master-chain.crt -inform PEM -outform DER >/dev/null 2>&1 && $PCA_OPENSSL crl2pkcs7 -certfile $PCA_SSL_CA/master-chain.pem -out $PCA_SSL_CA/master-chain.p7c -nocrl >/dev/null 2>&1
+	18 0 * * * $PCA_REALCMD --export-chain --root-ca --select-ca network-ca --filename $PCA_SSL_CA/network-chain.pem --force >/dev/null 2>&1 && $PCA_OPENSSL x509 -in $PCA_SSL_CA/network-chain.pem -out $PCA_SSL_CA/network-chain.crt -inform PEM -outform DER >/dev/null 2>&1 && $PCA_OPENSSL crl2pkcs7 -certfile $PCA_SSL_CA/network-chain.pem -out $PCA_SSL_CA/network-chain.p7c -nocrl >/dev/null 2>&1
+	19 0 * * * $PCA_REALCMD --export-chain --root-ca --select-ca identity-ca --filename $PCA_SSL_CA/identity-chain.pem --force >/dev/null 2>&1 && $PCA_OPENSSL x509 -in $PCA_SSL_CA/identity-chain.pem -out $PCA_SSL_CA/identity-chain.crt -inform PEM -outform DER >/dev/null 2>&1 && $PCA_OPENSSL crl2pkcs7 -certfile $PCA_SSL_CA/identity-chain.pem -out $PCA_SSL_CA/identity-chain.p7c -nocrl >/dev/null 2>&1
+	20 0 * * * $PCA_REALCMD --export-chain --root-ca --select-ca component-ca --filename $PCA_SSL_CA/component-chain.pem --force >/dev/null 2>&1 && $PCA_OPENSSL x509 -in $PCA_SSL_CA/component-chain.pem -out $PCA_SSL_CA/component-chain.crt -inform PEM -outform DER >/dev/null 2>&1 && $PCA_OPENSSL crl2pkcs7 -certfile $PCA_SSL_CA/component-chain.pem -out $PCA_SSL_CA/component-chain.p7c -nocrl >/dev/null 2>&1
+	
+	# Daily, every three hours from 00:21 and 00:22 on, rehash the certificate stores
+	21 */3 * * * $PCA_C_REHASH $PCA_SSL_CERTS >/dev/null 2>&1
+	22 */3 * * * $PCA_C_REHASH $PCA_BASE_PATH/ca/certs >/dev/null 2>&1
+	
+	# Set /var/www/pki to the path, where you publish your ca certificates
+	# 23 */3 * * * $PCA_C_REHASH /var/www/pki >/dev/null 2>&1
+	
+	# Daily, every four hours from 00:24 to 00:28 on, restart the ocsp daemons
+	24 */4 * * * systemctl stop $PCA_PROGNAME-root-ca-ocsp && systemctl start $PCA_PROGNAME-root-ca-ocsp >/dev/null 2>&1
+	25 */4 * * * systemctl stop $PCA_PROGNAME-master-ca-ocsp && systemctl start $PCA_PROGNAME-master-ca-ocsp >/dev/null 2>&1
+	26 */4 * * * systemctl stop $PCA_PROGNAME-network-ca-ocsp && systemctl start $PCA_PROGNAME-network-ca-ocsp >/dev/null 2>&1
+	27 */4 * * * systemctl stop $PCA_PROGNAME-identity-ca-ocsp && systemctl start $PCA_PROGNAME-identity-ca-ocsp >/dev/null 2>&1
+	28 */4 * * * systemctl stop $PCA_PROGNAME-component-ca-ocsp && systemctl start $PCA_PROGNAME-component-ca-ocsp >/dev/null 2>&1	
+	EOF
+	
+	exit
+fi
+
+# END OPMODE: CREATE-CRONTAB
+############################
+
 ##########################
 # OPMODE: UPDATE
 
 if [ "$PCA_OPMODE" = "update" -o "$PCA_OPMODE" = "install" ]; then
+	[ -x "$PCA_GIT" ] || PCA_OPENSSL=`which git 2>/dev/null`
+	[ -x "$PCA_GIT" ] || error 1 "Missing git"
 	echo -n "[0;1;34;94mChecking for updates...[0m"
 	mypwd=`pwd`
 	cmd=`which $PCA_PROGNAME`
 	[ "$cmd" = "" ] && cmd="$0"
-	check1=`md5sum $cmd | awk '{print $1}'`
-	tmp=`mktemp -d -q --suffix .pca`
-	[ "$tmp" = "" ] && error 5 "mktemp missing"
+	check1=`$PCA_MD5SUM $cmd | $PCA_AWK '{print $1}'`
+	tmp=`$PCA_MKTEMP -d -q --suffix .pca`
+	[ "$tmp" = "" ] && error 5 "Unable to create tmp directory"
 	cd $tmp &&
-	git clone $PCA_GITHUB >/dev/null 2>&1 && \
+	$PCA_GIT clone $PCA_GITHUB >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
-	check2=`md5sum -b $tmp/perfect-ca/$PCA_PROGNAME | awk '{print $1}'`
+	check2=`$PCA_MD5SUM -b $tmp/perfect-ca/$PCA_PROGNAME | $PCA_AWK '{print $1}'`
 	cd $pwd
 	if [ "$PCA_OPMODE" = "update" ]; then
 		if [ "$check1" = "$check2" ]; then
@@ -2019,6 +2317,7 @@ if [ "$PCA_OPMODE" = "update-crl" ]; then
 				-out $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.crl >/dev/null 2>&1 || error 1 "Update failed"
 			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl 2>/dev/null`
 			ln -sf $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
+			ln -sf $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl $PCA_SSL_CERTS/PCA_$PCA_SELECTED_CA.crl >/dev/null 2>&1
 			ln -sf $PCA_SSL_CERTS/PCA_$PCA_SELECTED_CA.crl $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 		;;
 		*)
@@ -2086,17 +2385,17 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	
 	echo -n "[0;1;34;94mSetting up Perfect-CA paths and configs...[0m"
 	
-	rm -rf $PCA_BASE_PATH/ca/{log,crl,certs,conf,requests,private} >/dev/null 2>&1
-	mkdir -p $PCA_BASE_PATH/ca/{log,crl,certs,conf,requests,private} >/dev/null 2>&1
+	rm -rf $PCA_BASE_PATH/ca/{crl,certs,conf,requests,private} >/dev/null 2>&1
+	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf,requests,private} >/dev/null 2>&1
 	chmod 775 $PCA_BASE_PATH/ca/{crl,certs,requests} >/dev/null 2>&1
-	chmod 770 $PCA_BASE_PATH/ca/{log,conf,private} >/dev/null 2>&1
+	chmod 770 $PCA_BASE_PATH/ca/{conf,private} >/dev/null 2>&1
 	
 	for pth in root-ca master-ca component-ca network-ca identity-ca; do
 		rm -rf $PCA_BASE_PATH/ca/$pth >/dev/null 2>&1
 		mkdir -p $PCA_BASE_PATH/ca/$pth/{private,db,certs} >/dev/null 2>&1
 		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/$pth.db >/dev/null 2>&1
 		cp /dev/null $PCA_BASE_PATH/ca/$pth/db/$pth.db.attr >/dev/null 2>&1
-		echo "01" > $PCA_BASE_PATH/ca/$pth/db/$pth.crt.srl
+		echo "01" > $PCA_BASE_PATH/ca/$pth/db/$pth.pem.srl
 		echo "01" > $PCA_BASE_PATH/ca/$pth/db/$pth.crl.srl
 		chmod -R 700 $PCA_BASE_PATH/ca/$pth/private >/dev/null 2>&1
 		chmod -R 755 $PCA_BASE_PATH/ca/$pth/certs >/dev/null 2>&1
@@ -2113,19 +2412,19 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	$PCA_OPENSSL ca -selfsign -batch \
 		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
 		-in $PCA_BASE_PATH/ca/requests/root-ca.csr \
-		-out $PCA_BASE_PATH/ca/certs/root-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/root-ca.pem \
 		-extensions root_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/root-ca.xrl >/dev/null 2>&1 && \
 	$PCA_OPENSSL x509 -outform der \
-		-in $PCA_BASE_PATH/ca/certs/root-ca.crt \
-		-out $PCA_BASE_PATH/ca/certs/root-ca.cer >/dev/null 2>&1 && \
+		-in $PCA_BASE_PATH/ca/certs/root-ca.pem \
+		-out $PCA_BASE_PATH/ca/certs/root-ca.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
 		-in $PCA_BASE_PATH/ca/crl/root-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
-		-certfile $PCA_BASE_PATH/ca/certs/root-ca.crt \
+		-certfile $PCA_BASE_PATH/ca/certs/root-ca.pem \
 		-out $PCA_BASE_PATH/ca/certs/root-ca.p7c \
 		-nocrl >/dev/null 2>&1 && \
 	echo $OK || echo $FAILED
@@ -2138,25 +2437,25 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	$PCA_OPENSSL ca -batch \
 		-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
 		-in $PCA_BASE_PATH/ca/requests/master-ca.csr \
-		-out $PCA_BASE_PATH/ca/certs/master-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/master-ca.pem \
 		-extensions intermediate_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/master-ca.xrl >/dev/null 2>&1 && \
-	cat $PCA_BASE_PATH/ca/certs/master-ca.crt $PCA_BASE_PATH/ca/certs/root-ca.crt > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
+	cat $PCA_BASE_PATH/ca/certs/master-ca.pem $PCA_BASE_PATH/ca/certs/root-ca.pem > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
-		-in $PCA_BASE_PATH/ca/certs/master-ca.crt \
-		-out $PCA_BASE_PATH/ca/certs/master-ca.cer >/dev/null 2>&1 && \
+		-in $PCA_BASE_PATH/ca/certs/master-ca.pem \
+		-out $PCA_BASE_PATH/ca/certs/master-ca.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
 		-in $PCA_BASE_PATH/ca/crl/master-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
-		-certfile $PCA_BASE_PATH/ca/certs/master-ca.crt \
+		-certfile $PCA_BASE_PATH/ca/certs/master-ca.pem \
 		-out $PCA_BASE_PATH/ca/certs/master-ca.p7c \
 		-nocrl >/dev/null 2>&1 && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/master-chain.pem \
-		-out $PCA_BASE_PATH/ca/certs/master-chain.cer >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/certs/master-chain.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/master-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/master-chain.p7c \
@@ -2171,25 +2470,25 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	$PCA_OPENSSL ca -batch \
 		-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
 		-in $PCA_BASE_PATH/ca/requests/network-ca.csr \
-		-out $PCA_BASE_PATH/ca/certs/network-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/network-ca.pem \
 		-extensions intermediate_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/network-ca.xrl >/dev/null 2>&1 && \
-	cat $PCA_BASE_PATH/ca/certs/network-ca.crt $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
+	cat $PCA_BASE_PATH/ca/certs/network-ca.pem $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
-		-in $PCA_BASE_PATH/ca/certs/network-ca.crt \
-		-out $PCA_BASE_PATH/ca/certs/network-ca.cer >/dev/null 2>&1 && \
+		-in $PCA_BASE_PATH/ca/certs/network-ca.pem \
+		-out $PCA_BASE_PATH/ca/certs/network-ca.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
 		-in $PCA_BASE_PATH/ca/crl/network-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
-		-certfile $PCA_BASE_PATH/ca/certs/network-ca.crt \
+		-certfile $PCA_BASE_PATH/ca/certs/network-ca.pem \
 		-out $PCA_BASE_PATH/ca/certs/network-ca.p7c \
 		-nocrl >/dev/null 2>&1 && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/network-chain.pem \
-		-out $PCA_BASE_PATH/ca/certs/network-chain.cer >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/certs/network-chain.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/network-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/network-chain.p7c \
@@ -2204,25 +2503,25 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	$PCA_OPENSSL ca -batch \
 		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
 		-in $PCA_BASE_PATH/ca/requests/identity-ca.csr \
-		-out $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/identity-ca.pem \
 		-extensions signing_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/identity-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/identity-ca.xrl >/dev/null 2>&1 && \
-	cat $PCA_BASE_PATH/ca/certs/identity-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
+	cat $PCA_BASE_PATH/ca/certs/identity-ca.pem $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
-		-in $PCA_BASE_PATH/ca/certs/identity-ca.crt \
-		-out $PCA_BASE_PATH/ca/certs/identity-ca.cer >/dev/null 2>&1 && \
+		-in $PCA_BASE_PATH/ca/certs/identity-ca.pem \
+		-out $PCA_BASE_PATH/ca/certs/identity-ca.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
 		-in $PCA_BASE_PATH/ca/crl/identity-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
-		-certfile $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+		-certfile $PCA_BASE_PATH/ca/certs/identity-ca.pem \
 		-out $PCA_BASE_PATH/ca/certs/identity-ca.p7c \
 		-nocrl >/dev/null 2>&1 && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/identity-chain.pem \
-		-out $PCA_BASE_PATH/ca/certs/identity-chain.cer >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/certs/identity-chain.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/identity-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/identity-chain.p7c \
@@ -2237,25 +2536,25 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	$PCA_OPENSSL ca -batch \
 		-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
 		-in $PCA_BASE_PATH/ca/requests/component-ca.csr \
-		-out $PCA_BASE_PATH/ca/certs/component-ca.crt \
+		-out $PCA_BASE_PATH/ca/certs/component-ca.pem \
 		-extensions signing_ca_ext >/dev/null 2>&1 && \
 	$PCA_OPENSSL ca -gencrl -batch \
 		-config $PCA_BASE_PATH/ca/conf/component-ca.conf \
 		-out $PCA_BASE_PATH/ca/crl/component-ca.xrl >/dev/null 2>&1 && \
-	cat $PCA_BASE_PATH/ca/certs/component-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
+	cat $PCA_BASE_PATH/ca/certs/component-ca.pem $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
 	$PCA_OPENSSL x509 -outform der \
-		-in $PCA_BASE_PATH/ca/certs/component-ca.crt \
-		-out $PCA_BASE_PATH/ca/certs/component-ca.cer >/dev/null 2>&1 && \
+		-in $PCA_BASE_PATH/ca/certs/component-ca.pem \
+		-out $PCA_BASE_PATH/ca/certs/component-ca.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl -outform der \
 		-in $PCA_BASE_PATH/ca/crl/component-ca.xrl \
 		-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
-		-certfile $PCA_BASE_PATH/ca/certs/component-ca.crt \
+		-certfile $PCA_BASE_PATH/ca/certs/component-ca.pem \
 		-out $PCA_BASE_PATH/ca/certs/component-ca.p7c \
 		-nocrl >/dev/null 2>&1 && \
 	$PCA_OPENSSL x509 -outform der \
 		-in $PCA_BASE_PATH/ca/certs/component-chain.pem \
-		-out $PCA_BASE_PATH/ca/certs/component-chain.cer >/dev/null 2>&1 && \
+		-out $PCA_BASE_PATH/ca/certs/component-chain.crt >/dev/null 2>&1 && \
 	$PCA_OPENSSL crl2pkcs7 -outform der \
 		-certfile $PCA_BASE_PATH/ca/certs/component-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/component-chain.p7c \
@@ -2264,9 +2563,9 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	
 	echo -n "[0;1;34;94mExecuting rehash...[0m"
 	for pth in root-ca master-ca network-ca component-ca identity-ca; do
-		hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.crt 2>/dev/null`
-		ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
-		ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_SSL_CERTS/PCA_$pth.pem >/dev/null 2>&1
+		hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.pem 2>/dev/null`
+		ln -sf $PCA_BASE_PATH/ca/certs/$pth.pem $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
+		ln -sf $PCA_BASE_PATH/ca/certs/$pth.pem $PCA_SSL_CERTS/PCA_$pth.pem >/dev/null 2>&1
 		ln -sf $PCA_SSL_CERTS/PCA_$pth.pem $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 		hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$pth.xrl 2>/dev/null`
 		ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
@@ -2281,6 +2580,27 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	echo -e "[0;1;34;94mand safely delete it (eg, with shred),[0m"
 	echo -e "[0;1;34;94mas this is your offline root CA's key.[0m"
 	
+	echo -e "\n[0;1;34;94mPlease create your OCSP signing certificates\nand the online-responder services right now, with the following commands:[0m"
+	for pth in root-ca master-ca network-ca component-ca identity-ca; do
+		echo "# $0 --create-certificate --skip-pkcs12 --ocspsign --$pth --filename ocsp-$pth"
+		echo "# $0 --create-ocsp-systemd-service --$pth > /lib/systemd/system/$PCA_PROGNAME-$pth-ocsp.service"
+	done
+	echo "# systemctl daemon-reload"
+
+	echo -e "\n[0;1;34;94mAfter daemon reload is done, you can enable and start your online-responders, with:[0m"
+	for pth in root-ca master-ca network-ca component-ca identity-ca; do
+		echo "# systemctl enable $PCA_PROGNAME-$pth-ocsp"
+		echo "# systemctl start $PCA_PROGNAME-$pth-ocsp"
+	done
+
+	echo -e "\n[0;1;34;94mThan, create and install the CA maintainance crontab, using this command:[0m"
+	echo "# $0 --create-crontab > /etc/cron.d/perfect-ca"
+
+	echo -e "\n[0;1;34;94mAfter this you can create your first EV certificate, using this command:[0m"
+	hostname=`hostname -f`
+	echo "# $0 --create-certificate --ev --export-san \"DNS:$hostname\" --filename $hostname"
+	echo ""
+
 	exit
 fi
                                                                       
@@ -2382,7 +2702,7 @@ if [ "$PCA_OPMODE" = "sign-request" -o "$PCA_OPMODE" = "create-certificate" ]; t
 	/bin/bash -c "$PCA_OPENSSL ca \
 		-config $config $opts \
 		-in $PCA_BASE_PATH/ca/requests/$PCA_FILENAME.csr \
-		-out $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.crt \
+		-out $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.pem \
 		-extensions $ext -days $days" || error 7 "Unable to sign request"
 		
 	[ "$PCA_OPMODE" = "create-certificate" ] || exit
@@ -2452,7 +2772,7 @@ if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
 	
 	/bin/bash -c "$PCA_OPENSSL pkcs12 -export $opts \
 		-inkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
-		-in $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.crt \
+		-in $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.pem \
 		-certfile $PCA_BASE_PATH/ca/certs/$chain \
 		-out $PCA_FILENAME.p12"
 	exit
@@ -2500,7 +2820,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		for pth in root-ca master-ca network-ca component-ca identity-ca; do
 			echo -n "[0;1;34;94mChecking validity of $pth...[0m"
 		
-			dateCert=`openssl x509 -in $PCA_BASE_PATH/ca/certs/$pth.crt -noout -dates | grep notAfter | cut -d = -f2`
+			dateCert=`openssl x509 -in $PCA_BASE_PATH/ca/certs/$pth.pem -noout -dates | grep notAfter | cut -d = -f2`
 			dateCertTS=`date -d "${dateCert}" +%s`
 			certValid=$(($dateCertTS > $dateNow))
 			graceTime=$((86400 * $PCA_GRACEDAYS))
@@ -2570,19 +2890,19 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		$PCA_OPENSSL ca -selfsign -batch \
 			-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
 			-in $PCA_BASE_PATH/ca/requests/root-ca.csr \
-			-out $PCA_BASE_PATH/ca/certs/root-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/root-ca.pem \
 			-extensions root_ca_ext >/dev/null 2>&1 && \
 		$PCA_OPENSSL ca -gencrl -batch \
 			-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
 			-out $PCA_BASE_PATH/ca/crl/root-ca.xrl >/dev/null 2>&1 && \
 		$PCA_OPENSSL x509 -outform der \
-			-in $PCA_BASE_PATH/ca/certs/root-ca.crt \
-			-out $PCA_BASE_PATH/ca/certs/root-ca.cer >/dev/null 2>&1 && \
+			-in $PCA_BASE_PATH/ca/certs/root-ca.pem \
+			-out $PCA_BASE_PATH/ca/certs/root-ca.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl -outform der \
 			-in $PCA_BASE_PATH/ca/crl/root-ca.xrl \
 			-out $PCA_BASE_PATH/ca/crl/root-ca.crl >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
-			-certfile $PCA_BASE_PATH/ca/certs/root-ca.crt \
+			-certfile $PCA_BASE_PATH/ca/certs/root-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/root-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
 		echo $OK || echo $FAILED
@@ -2593,19 +2913,19 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		$PCA_OPENSSL ca -batch \
 			-config $PCA_BASE_PATH/ca/conf/root-ca.conf \
 			-in $PCA_BASE_PATH/ca/requests/master-ca.csr \
-			-out $PCA_BASE_PATH/ca/certs/master-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/master-ca.pem \
 			-extensions intermediate_ca_ext >/dev/null 2>&1 && \
 		$PCA_OPENSSL ca -gencrl -batch \
 			-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
 			-out $PCA_BASE_PATH/ca/crl/master-ca.xrl >/dev/null 2>&1 && \
 		$PCA_OPENSSL x509 -outform der \
-			-in $PCA_BASE_PATH/ca/certs/master-ca.crt \
-			-out $PCA_BASE_PATH/ca/certs/master-ca.cer >/dev/null 2>&1 && \
+			-in $PCA_BASE_PATH/ca/certs/master-ca.pem \
+			-out $PCA_BASE_PATH/ca/certs/master-ca.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl -outform der \
 			-in $PCA_BASE_PATH/ca/crl/master-ca.xrl \
 			-out $PCA_BASE_PATH/ca/crl/master-ca.crl >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
-			-certfile $PCA_BASE_PATH/ca/certs/master-ca.crt \
+			-certfile $PCA_BASE_PATH/ca/certs/master-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/master-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
 		echo $OK || echo $FAILED	
@@ -2616,19 +2936,19 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		$PCA_OPENSSL ca -batch \
 			-config $PCA_BASE_PATH/ca/conf/master-ca.conf \
 			-in $PCA_BASE_PATH/ca/requests/network-ca.csr \
-			-out $PCA_BASE_PATH/ca/certs/network-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/network-ca.pem \
 			-extensions intermediate_ca_ext >/dev/null 2>&1 && \
 		$PCA_OPENSSL ca -gencrl -batch \
 			-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
 			-out $PCA_BASE_PATH/ca/crl/network-ca.xrl >/dev/null 2>&1 && \
 		$PCA_OPENSSL x509 -outform der \
-			-in $PCA_BASE_PATH/ca/certs/network-ca.crt \
-			-out $PCA_BASE_PATH/ca/certs/network-ca.cer >/dev/null 2>&1 && \
+			-in $PCA_BASE_PATH/ca/certs/network-ca.pem \
+			-out $PCA_BASE_PATH/ca/certs/network-ca.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl -outform der \
 			-in $PCA_BASE_PATH/ca/crl/network-ca.xrl \
 			-out $PCA_BASE_PATH/ca/crl/network-ca.crl >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
-			-certfile $PCA_BASE_PATH/ca/certs/network-ca.crt \
+			-certfile $PCA_BASE_PATH/ca/certs/network-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/network-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
 		echo $OK || echo $FAILED
@@ -2639,19 +2959,19 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		$PCA_OPENSSL ca -batch \
 			-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
 			-in $PCA_BASE_PATH/ca/requests/identity-ca.csr \
-			-out $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/identity-ca.pem \
 			-extensions signing_ca_ext >/dev/null 2>&1 && \
 		$PCA_OPENSSL ca -gencrl -batch \
 			-config $PCA_BASE_PATH/ca/conf/identity-ca.conf \
 			-out $PCA_BASE_PATH/ca/crl/identity-ca.xrl >/dev/null 2>&1 && \
 		$PCA_OPENSSL x509 -outform der \
-			-in $PCA_BASE_PATH/ca/certs/identity-ca.crt \
-			-out $PCA_BASE_PATH/ca/certs/identity-ca.cer >/dev/null 2>&1 && \
+			-in $PCA_BASE_PATH/ca/certs/identity-ca.pem \
+			-out $PCA_BASE_PATH/ca/certs/identity-ca.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl -outform der \
 			-in $PCA_BASE_PATH/ca/crl/identity-ca.xrl \
 			-out $PCA_BASE_PATH/ca/crl/identity-ca.crl >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
-			-certfile $PCA_BASE_PATH/ca/certs/identity-ca.crt \
+			-certfile $PCA_BASE_PATH/ca/certs/identity-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/identity-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
 		echo $OK || echo $FAILED
@@ -2662,19 +2982,19 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		$PCA_OPENSSL ca -batch \
 			-config $PCA_BASE_PATH/ca/conf/network-ca.conf \
 			-in $PCA_BASE_PATH/ca/requests/component-ca.csr \
-			-out $PCA_BASE_PATH/ca/certs/component-ca.crt \
+			-out $PCA_BASE_PATH/ca/certs/component-ca.pem \
 			-extensions signing_ca_ext >/dev/null 2>&1 && \
 		$PCA_OPENSSL ca -gencrl -batch \
 			-config $PCA_BASE_PATH/ca/conf/component-ca.conf \
 			-out $PCA_BASE_PATH/ca/crl/component-ca.xrl >/dev/null 2>&1 && \
 		$PCA_OPENSSL x509 -outform der \
-			-in $PCA_BASE_PATH/ca/certs/component-ca.crt \
-			-out $PCA_BASE_PATH/ca/certs/component-ca.cer >/dev/null 2>&1 && \
+			-in $PCA_BASE_PATH/ca/certs/component-ca.pem \
+			-out $PCA_BASE_PATH/ca/certs/component-ca.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl -outform der \
 			-in $PCA_BASE_PATH/ca/crl/component-ca.xrl \
 			-out $PCA_BASE_PATH/ca/crl/component-ca.crl >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
-			-certfile $PCA_BASE_PATH/ca/certs/component-ca.crt \
+			-certfile $PCA_BASE_PATH/ca/certs/component-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/component-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
 		echo $OK || echo $FAILED
@@ -2682,10 +3002,10 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 	
 	if [ "$updateMasterCA" = "1" ]; then
 		echo -n "[0;1;34;94mUpdating chain for Master-CA...[0m"
-		cat $PCA_BASE_PATH/ca/certs/master-ca.crt $PCA_BASE_PATH/ca/certs/root-ca.crt > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
+		cat $PCA_BASE_PATH/ca/certs/master-ca.pem $PCA_BASE_PATH/ca/certs/root-ca.pem > $PCA_BASE_PATH/ca/certs/master-chain.pem && \
 		$PCA_OPENSSL x509 -outform der \
 			-in $PCA_BASE_PATH/ca/certs/master-chain.pem \
-			-out $PCA_BASE_PATH/ca/certs/master-chain.cer >/dev/null 2>&1 && \
+			-out $PCA_BASE_PATH/ca/certs/master-chain.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
 			-certfile $PCA_BASE_PATH/ca/certs/master-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/master-chain.p7c \
@@ -2695,10 +3015,10 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 	
 	if [ "$updateNetworkCA" = "1" ]; then
 		echo -n "[0;1;34;94mUpdating chain for Network-CA...[0m"
-		cat $PCA_BASE_PATH/ca/certs/network-ca.crt $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
+		cat $PCA_BASE_PATH/ca/certs/network-ca.pem $PCA_BASE_PATH/ca/certs/master-chain.pem > $PCA_BASE_PATH/ca/certs/network-chain.pem && \
 		$PCA_OPENSSL x509 -outform der \
 			-in $PCA_BASE_PATH/ca/certs/network-chain.pem \
-			-out $PCA_BASE_PATH/ca/certs/network-chain.cer >/dev/null 2>&1 && \
+			-out $PCA_BASE_PATH/ca/certs/network-chain.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
 			-certfile $PCA_BASE_PATH/ca/certs/network-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/network-chain.p7c \
@@ -2708,10 +3028,10 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 
 	if [ "$updateIdentityCA" = "1" ]; then
 		echo -n "[0;1;34;94mUpdating chain for Identity-CA...[0m"
-		cat $PCA_BASE_PATH/ca/certs/identity-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
+		cat $PCA_BASE_PATH/ca/certs/identity-ca.pem $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/identity-chain.pem && \
 		$PCA_OPENSSL x509 -outform der \
 			-in $PCA_BASE_PATH/ca/certs/identity-chain.pem \
-			-out $PCA_BASE_PATH/ca/certs/identity-chain.cer >/dev/null 2>&1 && \
+			-out $PCA_BASE_PATH/ca/certs/identity-chain.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
 			-certfile $PCA_BASE_PATH/ca/certs/identity-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/identity-chain.p7c \
@@ -2721,10 +3041,10 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 	
 	if [ "$updateComponentCA" = "1" ]; then
 		echo -n "[0;1;34;94mUpdating chain for Component-CA...[0m"
-		cat $PCA_BASE_PATH/ca/certs/component-ca.crt $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
+		cat $PCA_BASE_PATH/ca/certs/component-ca.pem $PCA_BASE_PATH/ca/certs/network-chain.pem > $PCA_BASE_PATH/ca/certs/component-chain.pem && \
 		$PCA_OPENSSL x509 -outform der \
 			-in $PCA_BASE_PATH/ca/certs/component-chain.pem \
-			-out $PCA_BASE_PATH/ca/certs/component-chain.cer >/dev/null 2>&1 && \
+			-out $PCA_BASE_PATH/ca/certs/component-chain.crt >/dev/null 2>&1 && \
 		$PCA_OPENSSL crl2pkcs7 -outform der \
 			-certfile $PCA_BASE_PATH/ca/certs/component-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/component-chain.p7c \
@@ -2737,9 +3057,9 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		find $PCA_BASE_PATH/ca/certs -type l -name "*.0" -exec unlink {} \;
 		find $PCA_BASE_PATH/ca/crl -type l -name "*.0" -exec unlink {} \;
 		for pth in root-ca master-ca network-ca component-ca identity-ca; do
-			hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.crt 2>/dev/null`
-			ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
-			ln -sf $PCA_BASE_PATH/ca/certs/$pth.crt $PCA_SSL_CERTS/PCA_$pth.pem >/dev/null 2>&1
+			hash=`$PCA_OPENSSL x509 -hash -noout -in $PCA_BASE_PATH/ca/certs/$pth.pem 2>/dev/null`
+			ln -sf $PCA_BASE_PATH/ca/certs/$pth.pem $PCA_BASE_PATH/ca/certs/$hash.0 >/dev/null 2>&1
+			ln -sf $PCA_BASE_PATH/ca/certs/$pth.pem $PCA_SSL_CERTS/PCA_$pth.pem >/dev/null 2>&1
 			ln -sf $PCA_SSL_CERTS/PCA_$pth.pem $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 			hash=`$PCA_OPENSSL crl -hash -noout -in $PCA_BASE_PATH/ca/crl/$pth.xrl 2>/dev/null`
 			ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
@@ -2776,15 +3096,54 @@ if [ "$PCA_OPMODE" = "ocsp-server" ]; then
 	[ "$PCA_OCSP_PORT" = "" ] && error 3 "Missing OCSP server port"
 	[ "$PCA_FILENAME" = "" ] && error 4 "Missing filename prefix for OCSP rsigner certificate and private key"
 	
+	OCSP_MULTI=6
+	OCSP_TIMEOUT=10
+	OCSP_VERIFY_DEPTH=4
+	OCSP_NUM_REQUESTS=6
+	OCSP_NUM_MINUTES=6
+	
+	case $PCA_SELECTED_CA in
+		root-ca)
+			OCSP_MULTI=2
+			OCSP_TIMEOUT=10
+			OCSP_VERIFY_DEPTH=1
+			OCSP_NUM_REQUESTS=2
+			OCSP_NUM_MINUTES=240
+		;;
+		master-ca)
+			OCSP_MULTI=2
+			OCSP_TIMEOUT=10
+			OCSP_VERIFY_DEPTH=2
+			OCSP_NUM_REQUESTS=2
+			OCSP_NUM_MINUTES=180
+		;;
+		network-ca)
+			OCSP_MULTI=2
+			OCSP_TIMEOUT=10
+			OCSP_VERIFY_DEPTH=3
+			OCSP_NUM_REQUESTS=2
+			OCSP_NUM_MINUTES=120
+		;;
+		component-ca|identity-ca)
+			OCSP_MULTI=6
+			OCSP_TIMEOUT=10
+			OCSP_VERIFY_DEPTH=4
+			OCSP_NUM_REQUESTS=6
+			OCSP_NUM_MINUTES=60
+		;;
+	esac
+	
 	case $PCA_SELECTED_CA in
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
 			$PCA_OPENSSL ocsp \
 				-index $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/db/$PCA_SELECTED_CA.db \
 				-port $PCA_OCSP_PORT \
-				-rsigner $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.crt \
+				-rsigner $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.pem \
 				-rkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
-				-CA $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.crt \
-				-text -out $PCA_BASE_PATH/ca/log/ocsp-$PCA_SELECTED_CA.log
+				-CA $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.pem \
+				-ignore_err -multi $OCSP_MULTI -timeout $OCSP_TIMEOUT \
+				-verify_depth $OCSP_VERIFY_DEPTH -nrequest $OCSP_NUM_REQUESTS \
+				-nmin $OCSP_NUM_MINUTES -verify_hostname $PCA_BASE_OCSP_HOSTNAME
 		;;
 		*)
 			error 7 "Invalid CA selected"
@@ -2807,8 +3166,8 @@ if [ "$PCA_OPMODE" = "ocsp-verify" ]; then
 	case $PCA_SELECTED_CA in
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
 			$PCA_OPENSSL ocsp \
-				-CAfile $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.crt \
-				-issuer $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.crt \
+				-CAfile $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.pem \
+				-issuer $PCA_BASE_PATH/ca/certs/$PCA_SELECTED_CA.pem \
 				-cert $PCA_FILENAME \
 				-url http://localhost:$PCA_OCSP_PORT \
 				-resp_text
@@ -2840,7 +3199,9 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 		master-ca)
 			echo -n "" > $PCA_FILENAME
 			
-			$PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/master-ca.crt >> $PCA_FILENAME
+			for ca in $PCA_SELECTED_CA $withroot; do
+				[ "$ca" = "" ] || $PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.pem >> $PCA_FILENAME
+			done
 			
 			echo $OK
 		;;
@@ -2848,7 +3209,7 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 			echo -n "" > $PCA_FILENAME
 			
 			for ca in $PCA_SELECTED_CA master-ca $withroot; do
-				[ "$ca" = "" ] || $PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
+				[ "$ca" = "" ] || $PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.pem >> $PCA_FILENAME
 			done
 			
 			echo $OK
@@ -2857,7 +3218,7 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 			echo -n "" > $PCA_FILENAME
 			
 			for ca in $PCA_SELECTED_CA network-ca master-ca $withroot; do
-				[ "$ca" = "" ] || $PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.crt >> $PCA_FILENAME
+				[ "$ca" = "" ] || $PCA_OPENSSL x509 -in $PCA_BASE_PATH/ca/certs/$ca.pem >> $PCA_FILENAME
 			done
 			
 			echo $OK
@@ -2872,6 +3233,93 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 fi
 
 # END OPMODE: EXPORT-CHAIN
+##########################
+
+##########################
+# OPMODE: BACKUP
+
+if [ "$PCA_OPMODE" = "backup" ]; then
+	echo -n "[0;1;34;94mBacking up certificate authority...[0m"
+	mkdir -p $PCA_BACKUP_PATH >/dev/null 2>&1
+
+	[ -d "$PCA_BACKUP_PATH" ] || error 5 "$PCA_BACKUP_PATH not accessible"
+	[ "$PCA_BACKUP_KEY" != "" ] || error 6 "Missing backup key"
+	
+	tmp=`$PCA_MKTEMP -d -q --suffix .pca`
+	[ "$tmp" = "" ] && error 5 "Unable to create tmp directory"
+
+	backup_tmpname=`echo "${0}_$(date +'%s')" | $PCA_OPENSSL sha1 | $PCA_AWK '{print $2}'`
+	backup_tmpfile="$tmp/pca_${backup_tmpname}.tar"
+	backup_filename="$PCA_BACKUP_PATH/pca_$(date +'%Y%m%d').bak"
+	
+	if [ "$PCA_FORCE" = "" ]; then
+		[ -f "$backup_filename" ] && error 7 "Backup file exists. Use --force to overwrite it."
+	fi
+
+	$PCA_TAR -C "$PCA_BASE_PATH" -cf "$backup_tmpfile" . >/dev/null 2>&1 && \
+	$PCA_OPENSSL aes-256-cbc -a -salt -in "$backup_tmpfile" -out "$backup_filename" -iter 16384 -k "$PCA_BACKUP_KEY" -pbkdf2 >/dev/null 2>&1 && \
+	echo $OK || echo $FAILED
+	
+	rtval=$?
+	
+	rm -f "$backup_tmpfile" >/dev/null 2>&1 
+	rmdir "$backup_tmpname" >/dev/null 2>&1
+	
+	echo -n "[0;1;34;94mDeleting backups older than $PCA_BACKUP_ROTATE_DAYS days...[0m"
+	find $PCA_BACKUP_PATH -type f -name "pca_*.bak" -mtime +$PCA_BACKUP_ROTATE_DAYS -exec rm {} \;
+	echo $OK
+	
+	echo -en "\nThe MD5    checksum of $backup_filename is: "
+	cat $backup_filename | $PCA_OPENSSL md5 | $PCA_AWK '{print $2}'
+	echo -en "The SHA1   checksum of $backup_filename is: "
+	cat $backup_filename | $PCA_OPENSSL sha1 | $PCA_AWK '{print $2}'
+	echo -en "The SHA256 checksum of $backup_filename is: "
+	cat $backup_filename | $PCA_OPENSSL sha256 | $PCA_AWK '{print $2}'
+
+	exit $rtval
+fi
+
+# END OPMODE: BACKUP
+##########################
+
+##########################
+# OPMODE: RESTORE
+
+if [ "$PCA_OPMODE" = "restore" ]; then
+	[ "$PCA_FILENAME" = "" ] && error 4 "A backup filename has to be set."
+	[ -f "$PCA_FILENAME" ] || error 6 "Backup file not found."
+
+	echo -en "The MD5    checksum of $PCA_FILENAME is: "
+	cat $PCA_FILENAME | $PCA_OPENSSL md5 | $PCA_AWK '{print $2}'
+	echo -en "The SHA1   checksum of $PCA_FILENAME is: "
+	cat $PCA_FILENAME | $PCA_OPENSSL sha1 | $PCA_AWK '{print $2}'
+	echo -en "The SHA256 checksum of $PCA_FILENAME is: "
+	cat $PCA_FILENAME | $PCA_OPENSSL sha256 | $PCA_AWK '{print $2}'
+	echo ""
+
+	[ "$PCA_FORCE" = "" ] && error 7 "Restoring (overwriting the existing CA) is imposible, unless --force is set."
+	
+	echo -n "[0;1;34;94mRestoring certificate authority...[0m"
+	
+	tmp=`$PCA_MKTEMP -d -q --suffix .pca`
+	[ "$tmp" = "" ] && error 5 "Unable to create tmp directory"
+
+	restore_tmpname=`echo "${0}_$(date +'%s')" | $PCA_OPENSSL sha1 | $PCA_AWK '{print $2}'`
+	restore_tmpfile="$tmp/pca_${restore_tmpname}.tar"
+	
+	$PCA_OPENSSL aes-256-cbc -d -a -in "$PCA_FILENAME" -out "$restore_tmpfile" -iter 16384 -k "$PCA_BACKUP_KEY" -pbkdf2 >/dev/null 2>&1 && \
+	$PCA_TAR -C "$PCA_BASE_PATH" -xf "$restore_tmpfile" . >/dev/null 2>&1 && \
+	echo $OK || echo $FAILED
+	
+	rtval=$?
+	
+	rm -f "$restore_tmpfile" >/dev/null 2>&1 
+	rmdir "$restore_tmpname" >/dev/null 2>&1
+	
+	exit $rtval
+fi
+
+# END OPMODE: RESTORE
 ##########################
 
 ##########################
