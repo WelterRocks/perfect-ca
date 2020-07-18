@@ -2761,7 +2761,7 @@ if [ "$PCA_OPMODE" = "sign-request" -o "$PCA_OPMODE" = "create-certificate" ]; t
 		-config $config $opts \
 		-in $PCA_BASE_PATH/ca/requests/$PCA_FILENAME.csr \
 		-out $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.pem \
-		-extensions $ext -days $days" || error 7 "Unable to sign request"
+		-extensions $ext -days $days" && log "Sign-Request using config $PCA_USE_CONFIG for $PCA_FILENAME.pem succeeded" || error 7 "Unable to sign request for $PCA_USE_CONFIG at $PCA_FILENAME.csr"
 		
 	[ "$PCA_OPMODE" = "create-certificate" ] || exit
 fi
@@ -2832,7 +2832,7 @@ if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
 		-inkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
 		-in $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.pem \
 		-certfile $PCA_BASE_PATH/ca/certs/$chain \
-		-out $PCA_FILENAME.p12"
+		-out $PCA_FILENAME.p12" && log "Create PKCS12 using config $PCA_USE_CONFIG for $PCA_FILENAME.p12 succeeded" || error 7 "Unable to create PKCS12 for $PCA_USE_CONFIG at $PCA_FILENAME.pem"
 	exit
 fi
 
@@ -2848,7 +2848,7 @@ if [ "$PCA_OPMODE" = "revoke" ]; then
 	$PCA_OPENSSL ca \
 		-config $PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf \
 		-revoke $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/certs/$PCA_FILENAME.pem \
-		-crl_reason $PCA_CRL_REASON
+		-crl_reason $PCA_CRL_REASON && log "Revoked $PCA_FILENAME.pem for reason: $PCA_CRL_REASON" || error 8 "Unable to revoke $PCA_FILENAME.pem for reason: $PCA_CRL_REASON"
 	exit
 fi
 
@@ -2887,9 +2887,9 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			[ "$PCA_SKIP_GRACE" = "1" ] && certGraceTime="1"
 			
 			if [ "$certValid" = "1" -a "$certGraceTime" = "1" ]; then
-				echo $OK
+				echolog "$OK" "Certificate authority $pth is still valid"
 			else
-				echo $FAILED
+				echolog "$FAILED" "Certificate authority $pth is no longer valid"
 				
 				case $pth in
 					root-ca)
@@ -2963,7 +2963,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/root-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/root-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED
+		echolog "$OK" "Root-CA has been renewed" || echolog "$FAILED" "Failed renewing Root-CA"
 	fi
 	
 	if [ "$renewMasterCA" = "1" ]; then
@@ -2986,7 +2986,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/master-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/master-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED	
+		echolog "$OK" "Master-CA has been renewed" || echolog "$FAILED" "Failed renewing Master-CA"	
 	fi
 				
 	if [ "$renewNetworkCA" = "1" ]; then
@@ -3009,7 +3009,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/network-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/network-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED
+		echolog "$OK" "Network-CA has been renewed" || echolog "$FAILED" "Failed renewing Network-CA"
 	fi
 
 	if [ "$renewIdentityCA" = "1" ]; then
@@ -3032,7 +3032,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/identity-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/identity-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED
+		echolog "$OK" "Identity-CA has been renewed" || echolog "$FAILED" "Failed renewing Identity-CA"
 	fi
 
 	if [ "$renewComponentCA" = "1" ]; then
@@ -3055,7 +3055,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/component-ca.pem \
 			-out $PCA_BASE_PATH/ca/certs/component-ca.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED
+		echolog "$OK" "Component-CA has been renewed" || echolog "$FAILED" "Failed renewing Component-CA"
 	fi
 	
 	if [ "$updateMasterCA" = "1" ]; then
@@ -3068,7 +3068,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/master-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/master-chain.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED	
+		echolog "$OK" "Master-CA-Chain has been updated" || echolog "$FAILED" "Failed updating Master-CA-Chain"	
 	fi
 	
 	if [ "$updateNetworkCA" = "1" ]; then
@@ -3081,7 +3081,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/network-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/network-chain.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED	
+		echolog "$OK" "Network-CA-Chain has been updated" || echolog "$FAILED" "Failed updating Network-CA-Chain"
 	fi
 
 	if [ "$updateIdentityCA" = "1" ]; then
@@ -3094,7 +3094,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/identity-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/identity-chain.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED	
+		echolog "$OK" "Identity-CA-Chain has been updated" || echolog "$FAILED" "Failed updating Identity-CA-Chain"
 	fi
 	
 	if [ "$updateComponentCA" = "1" ]; then
@@ -3107,7 +3107,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			-certfile $PCA_BASE_PATH/ca/certs/component-chain.pem \
 			-out $PCA_BASE_PATH/ca/certs/component-chain.p7c \
 			-nocrl >/dev/null 2>&1 && \
-		echo $OK || echo $FAILED	
+		echolog "$OK" "Component-CA-Chain has been updated" || echolog "$FAILED" "Failed updating Component-CA-Chain"
 	fi
 
 	if [ "$rehash" = "1" ]; then
@@ -3124,7 +3124,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 			ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_SSL_CERTS/PCA_$pth.crl >/dev/null 2>&1
 			ln -sf $PCA_SSL_CERTS/PCA_$pth.crl $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
 		done
-		echo $OK
+		echolog "$OK" "Rehashing of renewed and updated CAs done"
 	fi
 			
 	exit
@@ -3193,6 +3193,7 @@ if [ "$PCA_OPMODE" = "ocsp-server" ]; then
 	
 	case $PCA_SELECTED_CA in
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
+			log "Bringing up online responder for $PCA_SELECTED_CA"
 			$PCA_OPENSSL ocsp \
 				-index $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/db/$PCA_SELECTED_CA.db \
 				-port $PCA_OCSP_PORT \
@@ -3204,7 +3205,7 @@ if [ "$PCA_OPMODE" = "ocsp-server" ]; then
 				-nmin $OCSP_NUM_MINUTES -verify_hostname $PCA_BASE_OCSP_HOSTNAME
 		;;
 		*)
-			error 7 "Invalid CA selected"
+			error 7 "Invalid CA selected for OCSP start"
 		;;
 	esac
 	
@@ -3283,9 +3284,11 @@ if [ "$PCA_OPMODE" = "export-chain" ]; then
 		;;
 		*)
 			echo $FAILED
-			error 7 "Unknown or invalid CA selected"
+			error 7 "Unknown or invalid CA selected for chain export"
 		;;
 	esac
+	
+	log "Certificate authority chain for $PCA_SELECTED_CA exported"
 
 	exit
 fi
@@ -3316,7 +3319,7 @@ if [ "$PCA_OPMODE" = "backup" ]; then
 
 	$PCA_TAR -C "$PCA_BASE_PATH" -cf "$backup_tmpfile" . >/dev/null 2>&1 && \
 	$PCA_OPENSSL aes-256-cbc -a -salt -in "$backup_tmpfile" -out "$backup_filename" -iter 16384 -k "$PCA_BACKUP_KEY" -pbkdf2 >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
+	echolog "$OK" "Backup $backup_filename successful" || echolog "$FAILED" "Backup $backup_filename failed"
 	
 	rtval=$?
 	
@@ -3367,7 +3370,7 @@ if [ "$PCA_OPMODE" = "restore" ]; then
 	
 	$PCA_OPENSSL aes-256-cbc -d -a -in "$PCA_FILENAME" -out "$restore_tmpfile" -iter 16384 -k "$PCA_BACKUP_KEY" -pbkdf2 >/dev/null 2>&1 && \
 	$PCA_TAR -C "$PCA_BASE_PATH" -xf "$restore_tmpfile" . >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
+	echolog "$OK" "Restoration of $PCA_FILENAME done" || echolog "$FAILED" "Restoration of $PCA_FILENAME failed"
 	
 	rtval=$?
 	
