@@ -162,11 +162,12 @@ PCA_GIT="/usr/bin/git"
 PCA_LOGGER="/usr/bin/logger"
 PCA_GNUPG="/usr/bin/gpg"
 PCA_GNUPG2="/usr/bin/gpg2"
+PCA_GNUPG_CONNECT_AGENT="/usr/bin/gpg-connect-agent"
 
 [ -f "$PCA_BASE_PATH/pcarc" ] && . $PCA_BASE_PATH/pcarc
 [ -f "~/.pcarc" ] && . ~/.pcarc
 
-export GNUPGHOME="$PCA_BASE_PATH/pgp"
+PCA_GNUPG_BASE_PATH="$PCA_BASE_PATH/pgp"
 
 # END BASIC CONFIGURATION
 ##########################
@@ -237,6 +238,9 @@ function error()
 [ -x "$PCA_GNUPG" ] || PCA_GNUPG=`which gpg 2>/dev/null`
 [ -x "$PCA_GNUPG" ] || error 1 "Missing GnuPG"
 
+[ -x "$PCA_GNUPG_CONNECT_AGENT" ] || PCA_GNUPG_CONNECT_AGENT=`which gpg-connect-agent 2>/dev/null`
+[ -x "$PCA_GNUPG_CONNECT_AGENT" ] || error 1 "Missing GnuPG connect agent"
+
 [ -x "$PCA_TAR" ] || PCA_TAR=`which tar 2>/dev/null`
 [ -x "$PCA_TAR" ] || error 1 "Missing tar"
 
@@ -284,6 +288,8 @@ LAST_HASHCODE="$PCA_HASHCODE"
 LAST_CHECKSUM=`cat "$PCA_BASE_PATH/.checksum" 2>/dev/null`
 
 if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
+	[ "$PCA_GPG_V2" = "" ] && error 112 "GnuPG is only supported in version 2"
+
 	skip_vcheck_msg="\nYou can disable this check by using --skip-ssl-version-check"
 	do_hashcode=0
 	case $PCA_SSL_VERSION_NUMBER in
@@ -480,7 +486,7 @@ function config_header()
 
 function config_gnupg()
 {
-	config_header $GNUPGHOME/gnupg.conf
+	config_header $PCA_GNUPG_BASE_PATH/$1/gnupg.conf
 	cat <<-EOF
 	# Avoid leakage of information
 	no-emit-version
@@ -2629,61 +2635,93 @@ fi
 
 if [ "$PCA_OPMODE" = "setup-pgp" ]; then
 	if [ "$PCA_FORCE" = "" ]; then
-		[ -d "$GNUPGHOME" ] && error 2 "Unable to start setup: PGP Home path exists"
+		[ -d "$PCA_GNUPG_BASE_PATH" ] && error 2 "Unable to start setup: PGP Home path exists"
 	fi
 
-	echo -n "[0;1;34;94mSetting up GnuPG...[0m"
+	echo -n "[0;1;34;94mSetting up GnuPG paths...[0m"
 	
-	[ "$GNUPGHOME" = "" ] && error 3 "Failsafe - GnuPG Home not set"
-	[ -d "$GNUPGHOME" ] && rm -rf $GNUPGHOME >/dev/null 2>&1 
-	[ -d "$GNUPGHOME" ] || mkdir -p $GNUPGHOME/root-store.d >/dev/null 2>&1
+	[ "$PCA_GNUPG_BASE_PATH" = "" ] && error 3 "Failsafe - GnuPG Home not set"
+	[ -d "$PCA_GNUPG_BASE_PATH" ] && rm -rf $PCA_GNUPG_BASE_PATH >/dev/null 2>&1 
+	
+	[ -d "$PCA_GNUPG_BASE_PATH/root-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/root-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/master-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/master-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/network-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/network-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/identity-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/identity-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/component-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/component-store/archive.d >/dev/null 2>&1
 
-	chmod 700 $GNUPGHOME >/dev/null 2>&1
+	chmod -R 700 $PCA_GNUPG_BASE_PATH >/dev/null 2>&1
+	echo $OK
+	
+	for store in root-store master-store network-store identity-store component-store; do
+		echo -n "[0;1;34;94mPreparing GnuPG $store configuration...[0m"
+		export GNUPGHOME="$PCA_GNUPG_BASE_PATH/$store"
+		config_gnupg $store > $PCA_GNUPG_BASE_PATH/$store/gnupg.conf && \
+		echolog "$OK" "Setup: GnuPG $store configuration setup succeeded" || echolog "$FAILED" "Setup: GnuPG $store configuration setup failed"
 		
-	config_gnupg > $GNUPGHOME/gnupg.conf && \
-	echolog "$OK" "Setup: GnuPG configuration setup succeeded" || echolog "$FAILED" "Setup: GnuPG configuration setup failed"
+		if [ "$store" = "root-store" ]; then
+			echo -n "[0;1;34;94mGenerating $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-generate-key "$PCA_GNUPG_MASTERKEY_OWNER_NAME <$PCA_GNUPG_MASTERKEY_OWNER_EMAIL>" "$PCA_GNUPG_MASTERKEY_CERT_ALGO" cert $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey generated successfully" || echolog "$FAILED" "Setup: Failed generating GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
+		else
+			echo -n "[0;1;34;94mImporting masterkey for $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert...[0m"
+			importstore=""
+			case $store in
+				master-store)
+					importstore="root-store"	
+				;;
+				network-store)
+					importstore="master-store"	
+				;;
+				identity-store|component-store)
+					importstore="network-store"	
+				;;
+			esac
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --import "$PCA_GNUPG_BASE_PATH/$importstore/archive.d/$importstore.priv.asc" >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey imported successfully" || echolog "$FAILED" "Setup: Failed importing GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
+		fi
 	
-	echo -n "[0;1;34;94mGenerating $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey...[0m"
-	$PCA_GNUPG --batch --passphrase '' --quick-generate-key "$PCA_GNUPG_MASTERKEY_OWNER_NAME <$PCA_GNUPG_MASTERKEY_OWNER_EMAIL>" "$PCA_GNUPG_MASTERKEY_CERT_ALGO" cert $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
-	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey generated successfully" || echolog "$FAILED" "Setup: Failed generating GnuPG $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
-
-	FPR=$($PCA_GNUPG --list-options show-only-fpr-mbox --list-secret-keys 2>/dev/null | $PCA_AWK '{print $1}')
+		FPR=$($PCA_GNUPG --list-options show-only-fpr-mbox --list-secret-keys 2>/dev/null | $PCA_AWK '{print $1}')
+		
+		echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign to masterkey...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_SIGN_ALGO" sign $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+		echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key"	
 	
-	echo -n "[0;1;34;94mAdding $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign to masterkey...[0m"
-	$PCA_GNUPG --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_SIGN_ALGO" sign $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
-	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key added successfully" || echolog "$FAILED" "Setup: Failed adding $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key"	
+		echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt to masterkey...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO" encrypt $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+		echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key"	
 
-	echo -n "[0;1;34;94mAdding $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt to masterkey...[0m"
-	$PCA_GNUPG --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO" encrypt $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
-	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key added successfully" || echolog "$FAILED" "Setup: Failed adding $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key"	
+		echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth to masterkey...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO" auth $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+		echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key"	
+	
+		echo -n "[0;1;34;94mCopying $store revocation list to archive...[0m"
+		cp "$PCA_GNUPG_BASE_PATH/$store/openpgp-revocs.d/$FPR.rev" "$PCA_GNUPG_BASE_PATH/$store/archive.d" >/dev/null 2>&1 && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.rev" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.rev" && \
+		echo $OK || echo $FAILED
+	
+		echo -n "[0;1;34;94mExporting $store public key to archive...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --export --armor "$FPR" > "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.pub.asc" 2>/dev/null && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.pub.asc" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.pub.asc" && \
+		echo $OK || echo $FAILED
+	
+		echo -n "[0;1;34;94mExporting $store private key to archive...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --export-secret-keys --armor "$FPR" > "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.priv.asc" 2>/dev/null && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.priv.asc" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.priv.asc" && \
+		echo $OK || echo $FAILED
+	
+		echo -n "[0;1;34;94mExporting $store private subkeys to archive...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --export-secret-subkeys --armor "$FPR" > "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.sub_priv.asc" 2>/dev/null && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.sub_priv.asc" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.sub_priv.asc" && \
+		echo $OK || echo $FAILED
+	
+		echo -n "[0;1;34;94mDeleting $store private masterkey...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --yes --delete-secret-key "$FPR" >/dev/null 2>&1 && \
+		echolog "$OK" "Setup: GnuPG $store private masterkey deleted" || echolog "$FAILED" "Setup: Failed to delete GnuPG $store private masterkey"
+	
+		echo -n "[0;1;34;94mRe-Importing $store private subkeys of masterkey...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --import "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.sub_priv.asc" >/dev/null 2>&1 && \
+		echolog "$OK" "Setup: GnuPG $store private subkeys of masterkey re-imported" || echolog "$FAILED" "Setup: Failed to reimport GnuPG $store private subkeys of masterkey"
 
-	echo -n "[0;1;34;94mAdding $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth to masterkey...[0m"
-	$PCA_GNUPG --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO" auth $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
-	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key added successfully" || echolog "$FAILED" "Setup: Failed adding $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key"	
-
-	echo -n "[0;1;34;94mCopying revocation list to root-store...[0m"
-	cp "$GNUPGHOME/openpgp-revocs.d/$FPR.rev" "$GNUPGHOME/root-store.d" >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
-
-	echo -n "[0;1;34;94mExporting public key to root-store...[0m"
-	$PCA_GNUPG --export --armor "$FPR" > "$GNUPGHOME/root-store.d/$FPR.pub.asc" 2>/dev/null && \
-	echo $OK || echo $FAILED
-
-	echo -n "[0;1;34;94mExporting private key to root-store...[0m"
-	$PCA_GNUPG --export-secret-keys --armor "$FPR" > "$GNUPGHOME/root-store.d/$FPR.priv.asc" 2>/dev/null && \
-	echo $OK || echo $FAILED
-
-	echo -n "[0;1;34;94mExporting private subkeys to root-store...[0m"
-	$PCA_GNUPG --export-secret-subkeys --armor "$FPR" > "$GNUPGHOME/root-store.d/$FPR.sub_priv.asc" 2>/dev/null && \
-	echo $OK || echo $FAILED
-
-	echo -n "[0;1;34;94mDeleting private masterkey...[0m"
-	$PCA_GNUPG --batch --yes --delete-secret-key "$FPR" >/dev/null 2>&1 && \
-	echolog "$OK" "Setup: GnuPG private masterkey deleted" || echolog "$FAILED" "Setup: Failed to delete GnuPG private masterkey"
-
-	echo -n "[0;1;34;94mRe-Importing private subkeys of masterkey...[0m"
-	$PCA_GNUPG --import "$GNUPGHOME/root-store.d/$FPR.sub_priv.asc" >/dev/null 2>&1 && \
-	echolog "$OK" "Setup: GnuPG private subkeys of masterkey re-imported" || echolog "$FAILED" "Setup: Failed to reimport GnuPG private subkeys of masterkey"
+		echo -n "[0;1;34;94mKilling $store agent...[0m"
+		[ -f "$PCA_GNUPG_BASE_PATH/$store/S.gpg-agent" ] && $PCA_GNUPG_CONNECT_AGENT --homedir "$PCA_GNUPG_BASE_PATH/$store" KILLAGENT /bye >/dev/null 2>&1
+		echo $OK
+	done
 fi
 
 # END OPMODE: SETUP-PGP
