@@ -122,6 +122,14 @@ PCA_SMIME_MD="sha256"
 
 PCA_GRACEDAYS="14"
 
+PCA_GNUPG_MASTERKEY_OWNER_NAME="Oliver Welter"
+PCA_GNUPG_MASTERKEY_OWNER_EMAIL="oliver@welter.rocks"
+PCA_GNUPG_MASTERKEY_KEY_LIFETIME="5y"
+PCA_GNUPG_MASTERKEY_CERT_ALGO="rsa4096"
+PCA_GNUPG_MASTERKEY_SIGN_ALGO="rsa4096"
+PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO="rsa4096"
+PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO="rsa4096"
+
 PCA_GNUPG_PERSONAL_CIPHER_PREFS="AES256"
 PCA_GNUPG_PERSONAL_DIGEST_PREFS="SHA512"
 PCA_GNUPG_DEFAULT_PREFS_LIST="SHA512 SHA384 SHA256 RIPEMD160 AES256 TWOFISH BLOWFISH ZLIB BZIP2 ZIP Uncompressed"
@@ -1668,6 +1676,8 @@ function help_switches()
 	# --setup                          Setup new CA and PGP infrastructure.      #
 	# --setup-ca                       Setup new certificate authorities only.   #
 	# --setup-pgp                      Setup new pretty good privacy only.       #
+	# --show-pgp-keybox                Show the GnuPG public keybox.             #
+	# --show-pgp-keylist               Show the GnuPG keylist.                   #
 	# --ocsp-server [port]             Start OCSP server on [port].              #
 	# --ocsp-verify [port]             Verify OCSP server on [port].             #
 	# --export-chain                   Export certificate chain of selected CA.  #
@@ -1884,6 +1894,12 @@ for arg in $*; do
 		;;
 		--setup-pgp)
 			PCA_OPMODE="setup-pgp"
+		;;
+		--show-pgp-keybox)
+			PCA_OPMODE="show-pgp-keybox"
+		;;
+		--show-pgp-keylist)
+			PCA_OPMODE="show-pgp-keylist"
 		;;
 		--ocsp-server)
 			PCA_OPMODE="ocsp-server"
@@ -2617,12 +2633,57 @@ if [ "$PCA_OPMODE" = "setup-pgp" ]; then
 	fi
 
 	echo -n "[0;1;34;94mSetting up GnuPG...[0m"
-	[ -d "$GNUPGHOME" ] || mkdir -p $GNUPGHOME >/dev/null 2>&1
-	chmod 700 $GNUPGHOME >/dev/null 2>&1	
+	
+	[ "$GNUPGHOME" = "" ] && error 3 "Failsafe - GnuPG Home not set"
+	[ -d "$GNUPGHOME" ] && rm -rf $GNUPGHOME >/dev/null 2>&1 
+	[ -d "$GNUPGHOME" ] || mkdir -p $GNUPGHOME/root-store.d >/dev/null 2>&1
+
+	chmod 700 $GNUPGHOME >/dev/null 2>&1
+		
 	config_gnupg > $GNUPGHOME/gnupg.conf && \
 	echolog "$OK" "Setup: GnuPG configuration setup succeeded" || echolog "$FAILED" "Setup: GnuPG configuration setup failed"
 	
+	echo -n "[0;1;34;94mGenerating $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey...[0m"
+	$PCA_GNUPG --batch --passphrase '' --quick-generate-key "$PCA_GNUPG_MASTERKEY_OWNER_NAME <$PCA_GNUPG_MASTERKEY_OWNER_EMAIL>" "$PCA_GNUPG_MASTERKEY_CERT_ALGO" cert $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey generated successfully" || echolog "$FAILED" "Setup: Failed generating GnuPG $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
+
+	FPR=$($PCA_GNUPG --list-options show-only-fpr-mbox --list-secret-keys 2>/dev/null | $PCA_AWK '{print $1}')
 	
+	echo -n "[0;1;34;94mAdding $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign to masterkey...[0m"
+	$PCA_GNUPG --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_SIGN_ALGO" sign $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key added successfully" || echolog "$FAILED" "Setup: Failed adding $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key"	
+
+	echo -n "[0;1;34;94mAdding $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt to masterkey...[0m"
+	$PCA_GNUPG --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO" encrypt $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key added successfully" || echolog "$FAILED" "Setup: Failed adding $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key"	
+
+	echo -n "[0;1;34;94mAdding $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth to masterkey...[0m"
+	$PCA_GNUPG --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO" auth $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+	echolog "$OK" "Setup: GnuPG $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key added successfully" || echolog "$FAILED" "Setup: Failed adding $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key"	
+
+	echo -n "[0;1;34;94mCopying revocation list to root-store...[0m"
+	cp "$GNUPGHOME/openpgp-revocs.d/$FPR.rev" "$GNUPGHOME/root-store.d" >/dev/null 2>&1 && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mExporting public key to root-store...[0m"
+	$PCA_GNUPG --export --armor "$FPR" > "$GNUPGHOME/root-store.d/$FPR.pub.asc" 2>/dev/null && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mExporting private key to root-store...[0m"
+	$PCA_GNUPG --export-secret-keys --armor "$FPR" > "$GNUPGHOME/root-store.d/$FPR.priv.asc" 2>/dev/null && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mExporting private subkeys to root-store...[0m"
+	$PCA_GNUPG --export-secret-subkeys --armor "$FPR" > "$GNUPGHOME/root-store.d/$FPR.sub_priv.asc" 2>/dev/null && \
+	echo $OK || echo $FAILED
+
+	echo -n "[0;1;34;94mDeleting private masterkey...[0m"
+	$PCA_GNUPG --batch --yes --delete-secret-key "$FPR" >/dev/null 2>&1 && \
+	echolog "$OK" "Setup: GnuPG private masterkey deleted" || echolog "$FAILED" "Setup: Failed to delete GnuPG private masterkey"
+
+	echo -n "[0;1;34;94mRe-Importing private subkeys of masterkey...[0m"
+	$PCA_GNUPG --import "$GNUPGHOME/root-store.d/$FPR.sub_priv.asc" >/dev/null 2>&1 && \
+	echolog "$OK" "Setup: GnuPG private subkeys of masterkey re-imported" || echolog "$FAILED" "Setup: Failed to reimport GnuPG private subkeys of masterkey"
 fi
 
 # END OPMODE: SETUP-PGP
@@ -3585,6 +3646,26 @@ fi
 
 # END OPMODE: RESTORE
 ##########################
+
+#############################
+# OPMODE: SHOW-PGP-KEYBOX
+
+if [ "$PCA_OPMODE" = "show-pgp-keybox" ]; then
+	$PCA_GNUPG -K
+fi
+
+# END OPMODE: SHOW-PGP-KEYBOX
+#############################
+
+##############################
+# OPMODE: SHOW-PGP-KEYLIST
+
+if [ "$PCA_OPMODE" = "show-pgp-keylist" ]; then
+	$PCA_GNUPG --list-options show-only-fpr-mbox --list-secret-keys
+fi
+
+# END OPMODE: SHOW-PGP-KEYLIST
+##############################
 
 ##########################
 # OPMODE: ---
