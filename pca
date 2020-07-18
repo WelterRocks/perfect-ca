@@ -37,6 +37,7 @@ PCA_BACKUP_KEY="ADI2E2FeyCbxQdV5MqACjR9mPv0qw1Cg"
 PCA_BACKUP_ROTATE_DAYS="7"
 
 PCA_BASE_PATH="/etc/pki"
+PCA_BASE_LOGFILE="syslog"
 PCA_BASE_NAME="Perfect-CA"
 PCA_BASE_OCSP_HOSTNAME="ocsp.my.domain"
 PCA_BASE_OCSP_URL="http://ocsp.my.domain"
@@ -131,11 +132,46 @@ PCA_MD5SUM="/usr/bin/md5sum"
 PCA_MKTEMP="/usr/bin/mktemp"
 PCA_REALPATH="/usr/bin/realpath"
 PCA_GIT="/usr/bin/git"
+PCA_LOGGER="/usr/bin/logger"
 
 [ -f "$PCA_BASE_PATH/pcarc" ] && . $PCA_BASE_PATH/pcarc
 [ -f "~/.pcarc" ] && . ~/.pcarc
 
 # END BASIC CONFIGURATION
+##########################
+
+##########################
+# LOG FUNCTION
+
+function log()
+{
+	[ "$PCA_LOGGER" = "" ] && return 1
+	
+	if [ "$PCA_BASE_LOGFILE" = "syslog" ]; then
+		echo "$*" | $PCA_LOGGER --id=$$ -t "Perfect-CA" >/dev/null 2>&1
+	elif [ "$PCA_BASE_LOGFILE" != "" ]; then
+		logpath=`dirname "$PCA_BASE_LOGFILE"`
+		[ -d "$logpath" ] || mkdir -p "$logpath" >/dev/null 2>&1
+		[ -f "$PCA_BASE_LOGFILE" ] || touch "$PCA_BASE_LOGFILE" >/dev/null 2>&1 && chmod 640 "$PCA_BASE_LOGFILE" >/dev/null 2>&1
+		echo "$*" | $PCA_LOGGER --id=$$ -f "$PCA_BASE_LOGFILE" >/dev/null 2>&1
+	fi
+	
+	return 0
+}
+
+# END LOG FUNCTION
+##########################
+
+##########################
+# ECHOLOG FUNCTION
+
+function echolog()
+{
+	echo -e "$1"
+	log "$2"
+}
+
+# END ECHOLOG FUNCTION
 ##########################
 
 ##########################
@@ -147,6 +183,7 @@ OK="[0;1;32;92mOK[0m"
 function error()
 {
 	echo -e "[0;1;31;91mERROR:[0m [0;1;32;93m$2[0m"
+	log "ERROR: $2"
 	exit $1
 }
 
@@ -176,6 +213,9 @@ function error()
 
 [ -x "$PCA_REALPATH" ] || PCA_REALPATH=`which realpath 2>/dev/null`
 [ -x "$PCA_REALPATH" ] || error 1 "Missing realpath"
+
+[ -x "$PCA_LOGGER" ] || PCA_LOGGER=`which logger 2>/dev/null`
+[ -x "$PCA_LOGGER" ] || PCA_LOGGER=""
 
 [ -d "$PCA_SSL_CERTS" ] || mkdir -p "$PCA_SSL_CERTS" >/dev/null 2>&1
 [ -d "$PCA_SSL_CA" ] || mkdir -p "$PCA_SSL_CA" >/dev/null 2>&1
@@ -1647,6 +1687,8 @@ PCA_CMD_VERSION_RAW=`echo $* | grep "version raw" >/dev/null 2>&1 && echo 1`
 
 EOF
 
+log "Invoked: $PCA_REALCMD $*"
+
 for arg in $*; do
 	case $1 in
 		--license)
@@ -2117,6 +2159,7 @@ EOF
 # OPMODE: CREATE-OCSP-SYSD
 
 if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
+	log "Generate OCSP systemd service $PCA_PROGNAME-$PCA_SELECTED_CA-ocsp.service"
 	config_header /lib/systemd/system/$PCA_PROGNAME-$PCA_SELECTED_CA-ocsp.service
 	case $PCA_SELECTED_CA in
 		root-ca)
@@ -2126,7 +2169,7 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		
 		[Service]
 		Type=simple
-		ExecStart=$PCA_REALCMD --ocsp-server 8880 --root-ca --filename ocsp-root-ca
+		ExecStart=$PCA_REALCMD --ocsp-server $PCA_ROOTCA_OCSP_PORT --root-ca --filename ocsp-root-ca
 		EOF
 		;;
 		master-ca)
@@ -2136,7 +2179,7 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		
 		[Service]
 		Type=simple
-		ExecStart=$PCA_REALCMD --ocsp-server 8881 --master-ca --filename ocsp-master-ca
+		ExecStart=$PCA_REALCMD --ocsp-server $PCA_MASTERCA_OCSP_PORT --master-ca --filename ocsp-master-ca
 		EOF
 		;;
 		network-ca)
@@ -2146,7 +2189,7 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		
 		[Service]
 		Type=simple
-		ExecStart=$PCA_REALCMD --ocsp-server 8882 --network-ca --filename ocsp-network-ca
+		ExecStart=$PCA_REALCMD --ocsp-server $PCA_NETWORKCA_OCSP_PORT --network-ca --filename ocsp-network-ca
 		EOF
 		;;
 		component-ca)
@@ -2156,7 +2199,7 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		
 		[Service]
 		Type=simple
-		ExecStart=$PCA_REALCMD --ocsp-server 8883 --component-ca --filename ocsp-component-ca
+		ExecStart=$PCA_REALCMD --ocsp-server $PCA_COMPONENTCA_OCSP_PORT --component-ca --filename ocsp-component-ca
 		EOF
 		;;
 		identity-ca)
@@ -2166,7 +2209,7 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		
 		[Service]
 		Type=simple
-		ExecStart=$PCA_REALCMD --ocsp-server 8884 --identity-ca --filename ocsp-identity-ca
+		ExecStart=$PCA_REALCMD --ocsp-server $PCA_IDENTITYCA_OCSP_PORT --identity-ca --filename ocsp-identity-ca
 		EOF
 		;;
 		*)
@@ -2189,6 +2232,7 @@ fi
 # OPMODE: CREATE-CRONTAB
 
 if [ "$PCA_OPMODE" = "create-crontab" ]; then
+	log "Generate maintainance crontab"
 	config_header /etc/cron.d/perfect-ca
 	cat <<-EOF	
 	# Daily at 00:10, backup the CA
@@ -2259,6 +2303,7 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_OPMODE" = "install" ]; then
 		if [ "$check1" = "$check2" ]; then
 			rm -rf $tmp >/dev/null 2>&1
 			echo "[0;1;32;92mNo update available[0m"
+			log "No update available for installation"
 			exit
 		else
 			check_version=`$tmp/perfect-ca/$PCA_PROGNAME --version $PCA_VERSION >/dev/null 2>&1; echo $?`
@@ -2266,9 +2311,11 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_OPMODE" = "install" ]; then
 			
 			if [ "$check_version" = 2 -o "$check_version" = 4 -o "$check_version" = 6 ]; then
 				echo "[0;1;32;91mUpdate available[0m"	
+				log "Update available for installation"
 				exit 1
 			else
 				echo "[0;1;32;93mNo update available, but GIT checksum differs.[0m"
+				log "No update available, but GIT checksum differs"
 				exit 255
 			fi
 		fi
@@ -2276,18 +2323,22 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_OPMODE" = "install" ]; then
 		if [ "$check1" = "$check2" ]; then
 			rm -rf $tmp >/dev/null 2>&1
 			echo "[0;1;32;92mNo installable update available[0m"
+			log "No installable update available"
 			exit 1
 		else
 			check_version=`$tmp/perfect-ca/$PCA_PROGNAME --version $PCA_VERSION >/dev/null 2>&1; echo $?`
 
 			if [ "$check_version" = 2 -o "$check_version" = 4 -o "$check_version" = 6 ]; then
+				log "Installing update"
 				echo -n "[0;1;34;94mInstalling update...[0m"
 				inst=`cp -f $tmp/perfect-ca/$PCA_PROGNAME $cmd >/dev/null 2>&1 && echo 0 || echo 1`
 				[ "$inst" = "0" ] && echo $OK || echo $FAILED
+				[ "$inst" = "0" ] && log "Update installed successfully" || log "Failed to install update"
 				rm -rf $tmp >/dev/null 2>&1
 				exit $inst
 			else
 				echo "[0;1;32;93mGIT checksum differs, so install manually.[0m"
+				log "GIT checksum differs, manual installation required"
 				exit 254
 			fi
 		fi	
@@ -2319,9 +2370,10 @@ if [ "$PCA_OPMODE" = "update-crl" ]; then
 			ln -sf $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
 			ln -sf $PCA_BASE_PATH/ca/crl/$PCA_SELECTED_CA.xrl $PCA_SSL_CERTS/PCA_$PCA_SELECTED_CA.crl >/dev/null 2>&1
 			ln -sf $PCA_SSL_CERTS/PCA_$PCA_SELECTED_CA.crl $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
+			log "CRL-Update of $PCA_SELECTED_CA done"
 		;;
 		*)
-			error 7 "Unknown or invalid CA selected"
+			error 7 "CRL-Update of unknown or invalid CA selected"
 		;;
 	esac
 	
@@ -2338,10 +2390,11 @@ if [ "$PCA_OPMODE" = "encrypt-private" ]; then
 	echo "[0;1;34;94mEncrypting private key of $PCA_SELECTED_CA in progress.[0m"
 	case $PCA_SELECTED_CA in
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
-			$PCA_OPENSSL rsa -des -in $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key -out $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key
+			$PCA_OPENSSL rsa -des -in $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key -out $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key && \
+			log "Encrypted private key of $PCA_SELECTED_CA" || log "Encrypting private key of $PCA_SELECTED_CA failed"
 		;;
 		*)
-			error 7 "Unknown or invalid CA selected"
+			error 7 "Private key encryption of unknown or invalid CA selected"
 		;;
 	esac
 	
@@ -2358,10 +2411,11 @@ if [ "$PCA_OPMODE" = "decrypt-private" ]; then
 	echo "[0;1;34;94mDecrypting private key of $PCA_SELECTED_CA in progress.[0m"
 	case $PCA_SELECTED_CA in
 		root-ca|master-ca|network-ca|component-ca|identity-ca)
-			$PCA_OPENSSL rsa -in $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key -out $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key
+			$PCA_OPENSSL rsa -in $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key -out $PCA_BASE_PATH/ca/$PCA_SELECTED_CA/private/$PCA_SELECTED_CA.key && \
+			log "Decrypted private key of $PCA_SELECTED_CA" || log "Decrypting private key of $PCA_SELECTED_CA failed"
 		;;
 		*)
-			error 7 "Unknown or invalid CA selected"
+			error 7 "Private key decryption of unknown or invalid CA selected"
 		;;
 	esac
 	
@@ -2376,11 +2430,11 @@ fi
 
 if [ "$PCA_OPMODE" = "setup" ]; then
 	if [ "$PCA_FORCE" = "" ]; then
-		[ -d "$PCA_BASE_PATH/ca/root-ca" ] && error 2 "Root CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/master-ca" ] && error 2 "Master CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/component-ca" ] && error 2 "Component CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/network-ca" ] && error 2 "Network CA path exists"
-		[ -d "$PCA_BASE_PATH/ca/identity-ca" ] && error 2 "Identity CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/root-ca" ] && error 2 "Unable to start setup: Root CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/master-ca" ] && error 2 "Unable to start setup: Master CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/component-ca" ] && error 2 "Unable to start setup: Component CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/network-ca" ] && error 2 "Unable to start setup: Network CA path exists"
+		[ -d "$PCA_BASE_PATH/ca/identity-ca" ] && error 2 "Unable to start setup: Identity CA path exists"
 	fi
 	
 	echo -n "[0;1;34;94mSetting up Perfect-CA paths and configs...[0m"
@@ -2389,6 +2443,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	mkdir -p $PCA_BASE_PATH/ca/{crl,certs,conf,requests,private} >/dev/null 2>&1
 	chmod 775 $PCA_BASE_PATH/ca/{crl,certs,requests} >/dev/null 2>&1
 	chmod 770 $PCA_BASE_PATH/ca/{conf,private} >/dev/null 2>&1
+	log "Setup: created base structure of Perfect-CA"
 	
 	for pth in root-ca master-ca component-ca network-ca identity-ca; do
 		rm -rf $PCA_BASE_PATH/ca/$pth >/dev/null 2>&1
@@ -2400,9 +2455,10 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		chmod -R 700 $PCA_BASE_PATH/ca/$pth/private >/dev/null 2>&1
 		chmod -R 755 $PCA_BASE_PATH/ca/$pth/certs >/dev/null 2>&1
 		chmod -R 775 $PCA_BASE_PATH/ca/$pth/db >/dev/null 2>&1
+		log "Setup: created base structure for $pth"
 	done
 	
-	configuration_write && echo $OK || echo $FAILED
+	configuration_write && echolog "$OK" "Setup: created configuration files" || echolog "$FAILED" "Setup: failed created configuration files"	
 	
 	echo -n "[0;1;34;94mSetting up Root-CA...[0m"
 	$PCA_OPENSSL req -new -nodes \
@@ -2427,7 +2483,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-certfile $PCA_BASE_PATH/ca/certs/root-ca.pem \
 		-out $PCA_BASE_PATH/ca/certs/root-ca.p7c \
 		-nocrl >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
+	echolog "$OK" "Setup: created Root-CA files" || echolog "$FAILED" "Setup: failed creating Root-CA"
 
 	echo -n "[0;1;34;94mSetting up Master-CA...[0m"
 	$PCA_OPENSSL req -new -nodes \
@@ -2460,7 +2516,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-certfile $PCA_BASE_PATH/ca/certs/master-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/master-chain.p7c \
 		-nocrl >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
+	echolog $OK "Setup: created Master-CA files" || echolog "$FAILED" "Setup: failed creating Master-CA"
 
 	echo -n "[0;1;34;94mSetting up Network-CA...[0m"
 	$PCA_OPENSSL req -new -nodes \
@@ -2493,7 +2549,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-certfile $PCA_BASE_PATH/ca/certs/network-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/network-chain.p7c \
 		-nocrl >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
+	echolog $OK "Setup: created Network-CA files" || echolog "$FAILED" "Setup: failed creating Network-CA"
 
 	echo -n "[0;1;34;94mSetting up Identity-CA...[0m"
 	$PCA_OPENSSL req -new -nodes \
@@ -2526,7 +2582,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-certfile $PCA_BASE_PATH/ca/certs/identity-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/identity-chain.p7c \
 		-nocrl >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
+	echolog $OK "Setup: created Identity-CA files" || echolog "$FAILED" "Setup: failed creating Identity-CA"
 
 	echo -n "[0;1;34;94mSetting up Component-CA...[0m"
 	$PCA_OPENSSL req -new -nodes \
@@ -2559,7 +2615,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		-certfile $PCA_BASE_PATH/ca/certs/component-chain.pem \
 		-out $PCA_BASE_PATH/ca/certs/component-chain.p7c \
 		-nocrl >/dev/null 2>&1 && \
-	echo $OK || echo $FAILED
+	echolog $OK "Setup: created Component-CA files" || echolog "$FAILED" "Setup: failed creating Component-CA"
 	
 	echo -n "[0;1;34;94mExecuting rehash...[0m"
 	for pth in root-ca master-ca network-ca component-ca identity-ca; do
@@ -2571,6 +2627,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 		ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_BASE_PATH/ca/crl/$hash.0 >/dev/null 2>&1
 		ln -sf $PCA_BASE_PATH/ca/crl/$pth.xrl $PCA_SSL_CERTS/PCA_$pth.crl >/dev/null 2>&1
 		ln -sf $PCA_SSL_CERTS/PCA_$pth.crl $PCA_SSL_CERTS/$hash.0 >/dev/null 2>&1
+		log "Setup: executed rehash of $pth"
 	done
 	echo $OK
 			
@@ -2601,6 +2658,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	echo "# $0 --create-certificate --ev --export-san \"DNS:$hostname\" --filename $hostname"
 	echo ""
 
+	log "Setup: done"
 	exit
 fi
                                                                       

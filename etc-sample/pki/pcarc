@@ -5,6 +5,7 @@ PCA_BACKUP_KEY="ADI2E2FeyCbxQdV5MqACjR9mPv0qw1Cg"
 PCA_BACKUP_ROTATE_DAYS="7"
 
 PCA_BASE_PATH="/etc/pki"
+PCA_BASE_LOGFILE="syslog"
 PCA_BASE_NAME="Perfect-CA"
 PCA_BASE_OCSP_HOSTNAME="ocsp.my.domain"
 PCA_BASE_OCSP_URL="http://ocsp.my.domain"
