@@ -122,8 +122,17 @@ PCA_SMIME_MD="sha256"
 
 PCA_GRACEDAYS="14"
 
-PCA_GNUPG_MASTERKEY_OWNER_NAME="Oliver Welter"
-PCA_GNUPG_MASTERKEY_OWNER_EMAIL="oliver@welter.rocks"
+PCA_GNUPG_ROOTSTORE_OWNER_NAME="Root Store"
+PCA_GNUPG_ROOTSTORE_OWNER_EMAIL="root-store@welter.rocks"
+PCA_GNUPG_MASTERSTORE_OWNER_NAME="Master Store"
+PCA_GNUPG_MASTERSTORE_OWNER_EMAIL="master-store@welter.rocks"
+PCA_GNUPG_NETWORKSTORE_OWNER_NAME="Network Store"
+PCA_GNUPG_NETWORKSTORE_OWNER_EMAIL="network-store@welter.rocks"
+PCA_GNUPG_IDENTITYSTORE_OWNER_NAME="Identity Store"
+PCA_GNUPG_IDENTITYSTORE_OWNER_EMAIL="identity-store@welter.rocks"
+PCA_GNUPG_COMPONENTSTORE_OWNER_NAME="Component Store"
+PCA_GNUPG_COMPONENTSTORE_OWNER_EMAIL="component-store@welter.rocks"
+
 PCA_GNUPG_MASTERKEY_KEY_LIFETIME="5y"
 PCA_GNUPG_MASTERKEY_CERT_ALGO="rsa4096"
 PCA_GNUPG_MASTERKEY_SIGN_ALGO="rsa4096"
@@ -1722,6 +1731,9 @@ function help_switches()
 	# --select-ca [CA]                 Select a specified CA from:               #
 	#                                  root-ca, master-ca, network-ca,           #
 	#                                  component-ca (default) or identity-ca     #
+	# --select-store [STORE]           Select a specified store from:            #
+	#                                  root-store, master-store, network-store,  #
+	#                                  component-store (def.) or identity-store  #
 	# --rc [rcfile]                    Use alternate resource control file.      #
 	# --ssl-certs [path]               Path to systems SSL database.             #
 	# --ssl-ca [path]                  Path to systems SSL CA subdirectory.      #
@@ -1840,6 +1852,7 @@ PCA_OPMODE=""
 PCA_USE_CONFIG=""
 PCA_FORCE=""
 PCA_SELECTED_CA="component-ca"
+PCA_SELECTED_STORE="component-store"
 PCA_FILENAME=""
 PCA_DAYS=""
 PCA_NAME=""
@@ -1954,6 +1967,10 @@ for arg in $*; do
 		;;
 		--select-ca)
 			PCA_SELECTED_CA="$2"
+			shift
+		;;
+		--select-store)
+			PCA_SELECTED_STORE="$2"
 			shift
 		;;
 		--identity-ca)
@@ -2658,46 +2675,84 @@ if [ "$PCA_OPMODE" = "setup-pgp" ]; then
 		config_gnupg $store > $PCA_GNUPG_BASE_PATH/$store/gnupg.conf && \
 		echolog "$OK" "Setup: GnuPG $store configuration setup succeeded" || echolog "$FAILED" "Setup: GnuPG $store configuration setup failed"
 		
+		add_sign=1
+		add_auth=0
+		add_encrypt=0
+
+		GNUPG_OWNER_NAME="$PCA_GNUPG_ROOTSTORE_OWNER_NAME"
+		GNUPG_OWNER_EMAIL="$PCA_GNUPG_ROOTSTORE_OWNER_EMAIL"
+
 		if [ "$store" = "root-store" ]; then
 			echo -n "[0;1;34;94mGenerating $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey...[0m"
-			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-generate-key "$PCA_GNUPG_MASTERKEY_OWNER_NAME <$PCA_GNUPG_MASTERKEY_OWNER_EMAIL>" "$PCA_GNUPG_MASTERKEY_CERT_ALGO" cert $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-generate-key "$GNUPG_OWNER_NAME <$GNUPG_OWNER_EMAIL>" "$PCA_GNUPG_MASTERKEY_CERT_ALGO" cert $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
 			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey generated successfully" || echolog "$FAILED" "Setup: Failed generating GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
 		else
 			echo -n "[0;1;34;94mImporting masterkey for $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert...[0m"
 			importstore=""
 			case $store in
 				master-store)
-					importstore="root-store"	
+					GNUPG_OWNER_NAME="$PCA_GNUPG_MASTERSTORE_OWNER_NAME"
+					GNUPG_OWNER_EMAIL="$PCA_GNUPG_MASTERSTORE_OWNER_EMAIL"
+					importstore="root-store"
 				;;
 				network-store)
-					importstore="master-store"	
+					GNUPG_OWNER_NAME="$PCA_GNUPG_NETWORKSTORE_OWNER_NAME"
+					GNUPG_OWNER_EMAIL="$PCA_GNUPG_NETWORKSTORE_OWNER_EMAIL"
+					importstore="master-store"
 				;;
 				identity-store|component-store)
-					importstore="network-store"	
+					importstore="network-store"
+					add_encrypt=1
+					if [ "$store" = "identity-store" ]; then
+						GNUPG_OWNER_NAME="$PCA_GNUPG_IDENTITYSTORE_OWNER_NAME"
+						GNUPG_OWNER_EMAIL="$PCA_GNUPG_IDENTITYSTORE_OWNER_EMAIL"
+						add_auth=1
+					else
+						GNUPG_OWNER_NAME="$PCA_GNUPG_COMPONENTSTORE_OWNER_NAME"
+						GNUPG_OWNER_EMAIL="$PCA_GNUPG_COMPONENTSTORE_OWNER_EMAIL"
+					fi
 				;;
 			esac
 			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --import "$PCA_GNUPG_BASE_PATH/$importstore/archive.d/$importstore.priv.asc" >/dev/null 2>&1 && \
 			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey imported successfully" || echolog "$FAILED" "Setup: Failed importing GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
 		fi
 	
-		FPR=$($PCA_GNUPG --list-options show-only-fpr-mbox --list-secret-keys 2>/dev/null | $PCA_AWK '{print $1}')
-		
-		echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign to masterkey...[0m"
-		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_SIGN_ALGO" sign $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
-		echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key"	
-	
-		echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt to masterkey...[0m"
-		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO" encrypt $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
-		echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key"	
+		FPR=$($PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --list-options show-only-fpr-mbox --list-secret-keys 2>/dev/null | $PCA_AWK '{print $1}' | head -1)
 
-		echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth to masterkey...[0m"
-		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO" auth $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
-		echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key"	
+		if [ "$store" != "root-store" ]; then
+			echo -n "[0;1;34;94mAdding $store uid to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --quick-add-uid "$FPR" "$GNUPG_OWNER_NAME <$GNUPG_OWNER_EMAIL>" >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store uid added successfully" || echolog "$FAILED" "Setup: Failed adding uid to GnuPG $store"
+		fi
+		
+		if [ "$add_sign" = "1" ]; then
+			echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_SIGN_ALGO" sign $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key"	
+		fi
 	
+		if [ "$add_encrypt" = "1" ]; then
+			echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO" encrypt $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key"	
+		fi
+
+		if [ "$add_auth" = "1" ]; then
+			echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO" auth $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key"	
+		fi
+	
+		if [ "$store" != "root-store" ]; then
+			echo -n "[0;1;34;94mCreating $store revocation list:[0m"
+			mkdir -p "$PCA_GNUPG_BASE_PATH/$store/openpgp-revocs.d" >/dev/null 2>&1
+			echo -e "y\n0\n\ny\n" | $PCA_GNUPG --command-fd 0 --status-fd 2 --homedir "$PCA_GNUPG_BASE_PATH/$store" --output "$PCA_GNUPG_BASE_PATH/$store/openpgp-revocs.d/$FPR.rev" --gen-revoke "$FPR" >/dev/null 2>&1
+		fi
+		
 		echo -n "[0;1;34;94mCopying $store revocation list to archive...[0m"
 		cp "$PCA_GNUPG_BASE_PATH/$store/openpgp-revocs.d/$FPR.rev" "$PCA_GNUPG_BASE_PATH/$store/archive.d" >/dev/null 2>&1 && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.rev" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.rev" && \
 		echo $OK || echo $FAILED
-	
+
 		echo -n "[0;1;34;94mExporting $store public key to archive...[0m"
 		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --export --armor "$FPR" > "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.pub.asc" 2>/dev/null && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.pub.asc" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.pub.asc" && \
 		echo $OK || echo $FAILED
@@ -3689,7 +3744,8 @@ fi
 # OPMODE: SHOW-PGP-KEYBOX
 
 if [ "$PCA_OPMODE" = "show-pgp-keybox" ]; then
-	$PCA_GNUPG -K
+	export GNUPGHOME="$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE"
+	$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE" -K
 fi
 
 # END OPMODE: SHOW-PGP-KEYBOX
@@ -3699,7 +3755,8 @@ fi
 # OPMODE: SHOW-PGP-KEYLIST
 
 if [ "$PCA_OPMODE" = "show-pgp-keylist" ]; then
-	$PCA_GNUPG --list-options show-only-fpr-mbox --list-secret-keys
+	export GNUPGHOME="$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE"
+	$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE" --list-options show-only-fpr-mbox --list-secret-keys
 fi
 
 # END OPMODE: SHOW-PGP-KEYLIST
