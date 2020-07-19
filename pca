@@ -2638,9 +2638,9 @@ fi
 
 if [ "$PCA_OPMODE" = "setup" ]; then
 	if [ "$PCA_FORCE" = "" ]; then
-		$0 --headless --setup-ca && $0 --headless --setup-pgp && exit || error 3 "Setup has been interrupted by previous errors."
+		$0 --headless --setup-pgp && $0 --headless --setup-ca && exit || error 3 "Setup has been interrupted by previous errors."
 	else
-		$0 --headless --setup-ca --force && $0 --headless --setup-pgp --force && exit || error 3 "Forced setup has been interrupted by previous errors."
+		$0 --headless --setup-pgp --force && $0 --headless --setup-ca --force && exit || error 3 "Forced setup has been interrupted by previous errors."
 	fi
 fi
 
