@@ -113,3 +113,8 @@ PCA_GNUPG_S2K_COUNT="65011712"
 
 PCA_SSL_CERTS="/etc/ssl/certs"
 PCA_SSL_CA="/etc/ssl/ca"
+
+# Explicit allow installed version number, also if it is affected by severe security bugs
+PCA_LIBGCRYPT_EXPLICIT_ALLOW=""
+PCA_GPG_EXPLICIT_ALLOW=""
+PCA_OPENSSL_EXPLICIT_ALLOW=""

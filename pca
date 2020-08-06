@@ -173,6 +173,10 @@ PCA_GNUPG="/usr/bin/gpg"
 PCA_GNUPG2="/usr/bin/gpg2"
 PCA_GNUPG_CONNECT_AGENT="/usr/bin/gpg-connect-agent"
 
+PCA_LIBGCRYPT_EXPLICIT_ALLOW=""
+PCA_GPG_EXPLICIT_ALLOW=""
+PCA_OPENSSL_EXPLICIT_ALLOW=""
+
 [ -f "$PCA_BASE_PATH/pcarc" ] && . $PCA_BASE_PATH/pcarc
 [ -f "~/.pcarc" ] && . ~/.pcarc
 
@@ -303,18 +307,24 @@ if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
 	do_hashcode=0
 	case $PCA_SSL_VERSION_NUMBER in
 		1.0.1)
-			if [ "$PCA_SSL_VERSION" != "1.0.1g" ]; then
-				error 99 "Your openssl version $PCA_SSL_VERSION is affected by the heartbleed bug.$skip_vcheck_msg"
+			if [ "$PCA_OPENSSL_EXPLICIT_ALLOW" != "$PCA_SSL_VERSION_NUMBER" ]; then
+				if [ "$PCA_SSL_VERSION" != "1.0.1g" ]; then
+					error 99 "Your openssl version $PCA_SSL_VERSION is affected by the heartbleed bug.$skip_vcheck_msg"
+				fi
 			fi
 		;;
 		1.0.0|1.1.1)
 			do_hashcode=$(($do_hashcode+1))
 		;;
 		0.9.6|0.9.7|0.9.8)
-			error 97 "Your openssl version $PCA_SSL_VERSION is not working with Perfect-CA.$skip_vcheck_msg"
+			if [ "$PCA_OPENSSL_EXPLICIT_ALLOW" != "$PCA_SSL_VERSION_NUMBER" ]; then
+				error 97 "Your openssl version $PCA_SSL_VERSION is not working with Perfect-CA.$skip_vcheck_msg"
+			fi
 		;;
 		*)
-			error 98 "Your openssl version $PCA_SSL_VERSION has not been tested with Perfect-CA, yet.$skip_vcheck_msg"
+			if [ "$PCA_OPENSSL_EXPLICIT_ALLOW" != "$PCA_SSL_VERSION_NUMBER" ]; then
+				error 98 "Your openssl version $PCA_SSL_VERSION has not been tested with Perfect-CA, yet.$skip_vcheck_msg"
+			fi
 		;;
 	esac
 	case $PCA_LIBGCRYPT_VERSION in
@@ -322,36 +332,54 @@ if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
 			do_hashcode=$(($do_hashcode+1))
 		;;
 		1.8.4)
-			error 99 "Your libgcrypt version $PCA_GPG_VERSION is affected by the flush-and-reload side-channel attack bug.$skip_vcheck_msg"
+			if [ "$PCA_LIBGCRYPT_EXPLICIT_ALLOW" != "$PCA_LIBGCRYPT_VERSION" ]; then
+				error 99 "Your libgcrypt version $PCA_LIBGCRYPT_VERSION is affected by the flush-and-reload side-channel attack bug.$skip_vcheck_msg"
+			fi
 		;;
 		1.8.3)
-			error 98 "Your libgcrypt version $PCA_GPG_VERSION is affected by the memory-cache side-channel attack bug.$skip_vcheck_msg"
+			if [ "$PCA_LIBGCRYPT_EXPLICIT_ALLOW" != "$PCA_LIBGCRYPT_VERSION" ]; then
+				error 98 "Your libgcrypt version $PCA_LIBGCRYPT_VERSION is affected by the memory-cache side-channel attack bug.$skip_vcheck_msg"
+			fi
 		;;
 		1.8.2)
-			error 97 "Your libgcrypt version $PCA_GPG_VERSION improperly encodes plaintext messages.$skip_vcheck_msg"
+			if [ "$PCA_LIBGCRYPT_EXPLICIT_ALLOW" != "$PCA_LIBGCRYPT_VERSION" ]; then
+				error 97 "Your libgcrypt version $PCA_LIBGCRYPT_VERSION improperly encodes plaintext messages.$skip_vcheck_msg"
+			fi
 		;;
 		1.8.1)
-			error 96 "Your libgcrypt version $PCA_GPG_VERSION improperly consider Curve25519 side-channel attacks.$skip_vcheck_msg"
+			if [ "$PCA_LIBGCRYPT_EXPLICIT_ALLOW" != "$PCA_LIBGCRYPT_VERSION" ]; then
+				error 96 "Your libgcrypt version $PCA_LIBGCRYPT_VERSION improperly consider Curve25519 side-channel attacks.$skip_vcheck_msg"
+			fi
 		;;
 		*)
-			error 95 "Your libgcrypt version $PCA_GPG_VERSION should not be used with Perfect-CA.$skip_vcheck_msg"
+			if [ "$PCA_LIBGCRYPT_EXPLICIT_ALLOW" != "$PCA_LIBGCRYPT_VERSION" ]; then
+				error 95 "Your libgcrypt version $PCA_LIBGCRYPT_VERSION should not be used with Perfect-CA.$skip_vcheck_msg"
+			fi
 		;;
 	esac
 	case $PCA_GPG_VERSION in
 		2.2.4|2.2.5)
-			error 99 "Your gnupg version $PCA_GPG_VERSION does not enforce a configuration in which key certification requires an offline master Certify key, which results in apparently valid certifications that occurred only with access to a signing subkey.$skip_vheck_msg"
+			if [ "$PCA_GPG_EXPLICIT_ALLOW" != "$PCA_GPG_VERSION" ]; then
+				error 99 "Your gnupg version $PCA_GPG_VERSION does not enforce a configuration in which key certification requires an offline master Certify key, which results in apparently valid certifications that occurred only with access to a signing subkey.$skip_vheck_msg"
+			fi
 		;;
 		2.2.17|2.2.18|2.2.19)
 			do_hashcode=$(($do_hashcode+1))
 		;;
 		2.2.9|2.2.10|2.2.11|2.2.12|2.2.13|2.2.14|2.2.15|2.2.16)
-			error 98 "Your gnupg version $PCA_GPG_VERSION is vulnerable to DOS attacks on the SKS-Keyserver.$skip_vcheck_msg"
+			if [ "$PCA_GPG_EXPLICIT_ALLOW" != "$PCA_GPG_VERSION" ]; then
+				error 98 "Your gnupg version $PCA_GPG_VERSION is vulnerable to DOS attacks on the SKS-Keyserver.$skip_vcheck_msg"
+			fi
 		;;
 		2.2.6|2.2.7|2.2.8)
-			error 97 "Your gnupg version $PCA_GPG_VERSION mishandles the original filename during decryption and verification actions, which allows remote attackers to spoof the output that GnuPG sends on file descriptor 2.$skip_vcheck_msg"
+			if [ "$PCA_GPG_EXPLICIT_ALLOW" != "$PCA_GPG_VERSION" ]; then
+				error 97 "Your gnupg version $PCA_GPG_VERSION mishandles the original filename during decryption and verification actions, which allows remote attackers to spoof the output that GnuPG sends on file descriptor 2.$skip_vcheck_msg"
+			fi
 		;;
 		*)
-			error 96 "Your libgcrypt version $PCA_GPG_VERSION should not be used with Perfect-CA.$skip_vcheck_msg"
+			if [ "$PCA_GPG_EXPLICIT_ALLOW" != "$PCA_GPG_VERSION" ]; then
+				error 96 "Your libgcrypt version $PCA_GPG_VERSION should not be used with Perfect-CA.$skip_vcheck_msg"
+			fi
 		;;
 	esac
 	
