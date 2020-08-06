@@ -2170,6 +2170,14 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		[Service]
 		Type=simple
 		ExecStart=$PCA_REALCMD --ocsp-server $PCA_ROOTCA_OCSP_PORT --root-ca --filename ocsp-root-ca
+		CPUWeight=20
+		CPUQuota=85%
+		IOWeight=20
+		MemorySwapMax=0
+		TimeoutStartSec=900
+		TimeoutStopSec=900
+		LimitNOFILE=16364
+		Nice=-5
 		EOF
 		;;
 		master-ca)
@@ -2180,6 +2188,14 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		[Service]
 		Type=simple
 		ExecStart=$PCA_REALCMD --ocsp-server $PCA_MASTERCA_OCSP_PORT --master-ca --filename ocsp-master-ca
+		CPUWeight=20
+		CPUQuota=85%
+		IOWeight=20
+		MemorySwapMax=0
+		TimeoutStartSec=900
+		TimeoutStopSec=900
+		LimitNOFILE=16364
+		Nice=-4
 		EOF
 		;;
 		network-ca)
@@ -2190,6 +2206,14 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		[Service]
 		Type=simple
 		ExecStart=$PCA_REALCMD --ocsp-server $PCA_NETWORKCA_OCSP_PORT --network-ca --filename ocsp-network-ca
+		CPUWeight=20
+		CPUQuota=85%
+		IOWeight=20
+		MemorySwapMax=0
+		TimeoutStartSec=900
+		TimeoutStopSec=900
+		LimitNOFILE=16364
+		Nice=-3
 		EOF
 		;;
 		component-ca)
@@ -2200,6 +2224,14 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		[Service]
 		Type=simple
 		ExecStart=$PCA_REALCMD --ocsp-server $PCA_COMPONENTCA_OCSP_PORT --component-ca --filename ocsp-component-ca
+		CPUWeight=20
+		CPUQuota=85%
+		IOWeight=20
+		MemorySwapMax=0
+		TimeoutStartSec=900
+		TimeoutStopSec=900
+		LimitNOFILE=16364
+		Nice=-2
 		EOF
 		;;
 		identity-ca)
@@ -2210,6 +2242,14 @@ if [ "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
 		[Service]
 		Type=simple
 		ExecStart=$PCA_REALCMD --ocsp-server $PCA_IDENTITYCA_OCSP_PORT --identity-ca --filename ocsp-identity-ca
+		CPUWeight=20
+		CPUQuota=85%
+		IOWeight=20
+		MemorySwapMax=0
+		TimeoutStartSec=900
+		TimeoutStopSec=900
+		LimitNOFILE=16364
+		Nice=-2
 		EOF
 		;;
 		*)
