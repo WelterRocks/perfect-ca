@@ -122,20 +122,61 @@ PCA_SMIME_MD="sha256"
 
 PCA_GRACEDAYS="14"
 
+PCA_GNUPG_ROOTSTORE_OWNER_NAME="Root Store"
+PCA_GNUPG_ROOTSTORE_OWNER_EMAIL="root-store@welter.rocks"
+PCA_GNUPG_MASTERSTORE_OWNER_NAME="Master Store"
+PCA_GNUPG_MASTERSTORE_OWNER_EMAIL="master-store@welter.rocks"
+PCA_GNUPG_NETWORKSTORE_OWNER_NAME="Network Store"
+PCA_GNUPG_NETWORKSTORE_OWNER_EMAIL="network-store@welter.rocks"
+PCA_GNUPG_IDENTITYSTORE_OWNER_NAME="Identity Store"
+PCA_GNUPG_IDENTITYSTORE_OWNER_EMAIL="identity-store@welter.rocks"
+PCA_GNUPG_COMPONENTSTORE_OWNER_NAME="Component Store"
+PCA_GNUPG_COMPONENTSTORE_OWNER_EMAIL="component-store@welter.rocks"
+
+PCA_GNUPG_MASTERKEY_KEY_LIFETIME="5y"
+PCA_GNUPG_MASTERKEY_CERT_ALGO="rsa4096"
+PCA_GNUPG_MASTERKEY_SIGN_ALGO="rsa4096"
+PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO="rsa4096"
+PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO="rsa4096"
+
+PCA_GNUPG_PERSONAL_CIPHER_PREFS="AES256"
+PCA_GNUPG_PERSONAL_DIGEST_PREFS="SHA512"
+PCA_GNUPG_DEFAULT_PREFS_LIST="SHA512 SHA384 SHA256 RIPEMD160 AES256 TWOFISH BLOWFISH ZLIB BZIP2 ZIP Uncompressed"
+
+PCA_GNUPG_CIPHER_ALGO="AES256"
+PCA_GNUPG_DIGEST_ALGO="SHA512"
+
+PCA_GNUPG_CERT_DIGEST_ALGO="SHA512"
+PCA_GNUPG_COMPRESS_ALGO="ZLIB"
+
+PCA_GNUPG_DISABLE_CIPHER_ALGO="3DES"
+PCA_GNUPG_WEAK_DIGEST="SHA1"
+
+PCA_GNUPG_S2K_CIPHER_ALGO="AES256"
+PCA_GNUPG_S2K_DIGEST_ALGO="SHA512"
+PCA_GNUPG_S2K_MODE="3"
+PCA_GNUPG_S2K_COUNT="65011712"
+
 PCA_SSL_CERTS="/etc/ssl/certs"
 PCA_SSL_CA="/etc/ssl/ca"
 PCA_OPENSSL="/usr/bin/openssl"
 PCA_C_REHASH="/usr/bin/c_rehash"
 PCA_TAR="/usr/bin/tar"
 PCA_AWK="/usr/bin/awk"
+PCA_GREP="/usr/bin/grep"
 PCA_MD5SUM="/usr/bin/md5sum"
 PCA_MKTEMP="/usr/bin/mktemp"
 PCA_REALPATH="/usr/bin/realpath"
 PCA_GIT="/usr/bin/git"
 PCA_LOGGER="/usr/bin/logger"
+PCA_GNUPG="/usr/bin/gpg"
+PCA_GNUPG2="/usr/bin/gpg2"
+PCA_GNUPG_CONNECT_AGENT="/usr/bin/gpg-connect-agent"
 
 [ -f "$PCA_BASE_PATH/pcarc" ] && . $PCA_BASE_PATH/pcarc
 [ -f "~/.pcarc" ] && . ~/.pcarc
+
+PCA_GNUPG_BASE_PATH="$PCA_BASE_PATH/pgp"
 
 # END BASIC CONFIGURATION
 ##########################
@@ -199,11 +240,24 @@ function error()
 [ -x "$PCA_C_REHASH" ] || PCA_C_REHASH=`which c_rehash 2>/dev/null`
 [ -x "$PCA_C_REHASH" ] || error 1 "Missing c_rehash"
 
+[ -x "$PCA_GNUPG2" ] || PCA_GNUPG2=`which gpg2 2>/dev/null`
+[ -x "$PCA_GNUPG2" ] || PCA_GNUPG2=""
+[ -x "$PCA_GNUPG2" ] && PCA_GNUPG="$PCA_GNUPG2"
+
+[ -x "$PCA_GNUPG" ] || PCA_GNUPG=`which gpg 2>/dev/null`
+[ -x "$PCA_GNUPG" ] || error 1 "Missing GnuPG"
+
+[ -x "$PCA_GNUPG_CONNECT_AGENT" ] || PCA_GNUPG_CONNECT_AGENT=`which gpg-connect-agent 2>/dev/null`
+[ -x "$PCA_GNUPG_CONNECT_AGENT" ] || error 1 "Missing GnuPG connect agent"
+
 [ -x "$PCA_TAR" ] || PCA_TAR=`which tar 2>/dev/null`
 [ -x "$PCA_TAR" ] || error 1 "Missing tar"
 
 [ -x "$PCA_AWK" ] || PCA_AWK=`which awk 2>/dev/null`
 [ -x "$PCA_AWK" ] || error 1 "Missing awk"
+
+[ -x "$PCA_GREP" ] || PCA_GREP=`which grep 2>/dev/null`
+[ -x "$PCA_GREP" ] || error 1 "Missing grep"
 
 [ -x "$PCA_MD5SUM" ] || PCA_MD5SUM=`which md5sum 2>/dev/null`
 [ -x "$PCA_MD5SUM" ] || error 1 "Missing md5sum"
@@ -223,33 +277,119 @@ function error()
 
 PCA_GITHUB="https://github.com/WelterRocks/perfect-ca"
 PCA_PROGNAME="pca"
-PCA_VERSION="1.03.1244"
+PCA_VERSION="1.04.1002"
 PCA_REALCMD=`$PCA_REALPATH $0`
 
 PCA_SSL_VERSION=`$PCA_OPENSSL version | $PCA_AWK '{print $2}'`
 PCA_SSL_VERSION_NUMBER=`echo $PCA_SSL_VERSION | $PCA_AWK '{if (match($0, /[a-z]/)) {print substr($1, 0, RSTART - 1)}}'`
+
+PCA_GPG_VERSION=`$PCA_GNUPG --version | $PCA_GREP "^gpg" | $PCA_AWK '{print $3}'`
+PCA_LIBGCRYPT_VERSION=`$PCA_GNUPG --version | $PCA_GREP "^libgcrypt" | $PCA_AWK '{print $2}'`
+PCA_GPG_V2=`echo $PCA_GPG_VERSION | $PCA_GREP "^2."`
+
 PCA_SKIP_VERSION_CHECK=`echo "$*" | $PCA_AWK '{if (match($0, /\-\-skip\-version\-check/)) {print $1}}'`
 
 PCA_SYSTEM=`uname -romv`
 PCA_HASHCODE="unsupported, due to skipped version check"
+PCA_CHECKSUM=`$PCA_MD5SUM $PCA_REALCMD | $PCA_AWK '{print $1}'`
+
+LAST_HASHCODE="$PCA_HASHCODE"
+LAST_CHECKSUM=`cat "$PCA_BASE_PATH/.checksum" 2>/dev/null`
 
 if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
+	[ "$PCA_GPG_V2" = "" ] && error 112 "GnuPG is only supported in version 2"
+
+	skip_vcheck_msg="\nYou can disable this check by using --skip-ssl-version-check"
+	do_hashcode=0
 	case $PCA_SSL_VERSION_NUMBER in
 		1.0.1)
 			if [ "$PCA_SSL_VERSION" != "1.0.1g" ]; then
-				error 99 "Your openssl version $PCA_SSL_VERSION is affected by the heartbleed bug.\nYou can disable this check by using --skip-ssl-version-check"
+				error 99 "Your openssl version $PCA_SSL_VERSION is affected by the heartbleed bug.$skip_vcheck_msg"
 			fi
 		;;
 		1.0.0|1.1.1)
-			PCA_HASHCODE=`echo "$PCA_SYSTEM $PCA_VERSION $PCA_SSL_VERSION" | $PCA_OPENSSL sha1 | $PCA_AWK '{print $2}'`
+			do_hashcode=$(($do_hashcode+1))
 		;;
 		0.9.6|0.9.7|0.9.8)
-			error 97 "Your openssl version $PCA_SSL_VERSION is not working with Perfect-CA.\nYou can disable this check by using --skip-ssl-version-check"
+			error 97 "Your openssl version $PCA_SSL_VERSION is not working with Perfect-CA.$skip_vcheck_msg"
 		;;
 		*)
-			error 98 "Your openssl version $PCA_SSL_VERSION has not been tested with Perfect-CA, yet.\nYou can disable this check by using --skip-ssl-version-check"
+			error 98 "Your openssl version $PCA_SSL_VERSION has not been tested with Perfect-CA, yet.$skip_vcheck_msg"
 		;;
 	esac
+	case $PCA_LIBGCRYPT_VERSION in
+		1.8.5)
+			do_hashcode=$(($do_hashcode+1))
+		;;
+		1.8.4)
+			error 99 "Your libgcrypt version $PCA_GPG_VERSION is affected by the flush-and-reload side-channel attack bug.$skip_vcheck_msg"
+		;;
+		1.8.3)
+			error 98 "Your libgcrypt version $PCA_GPG_VERSION is affected by the memory-cache side-channel attack bug.$skip_vcheck_msg"
+		;;
+		1.8.2)
+			error 97 "Your libgcrypt version $PCA_GPG_VERSION improperly encodes plaintext messages.$skip_vcheck_msg"
+		;;
+		1.8.1)
+			error 96 "Your libgcrypt version $PCA_GPG_VERSION improperly consider Curve25519 side-channel attacks.$skip_vcheck_msg"
+		;;
+		*)
+			error 95 "Your libgcrypt version $PCA_GPG_VERSION should not be used with Perfect-CA.$skip_vcheck_msg"
+		;;
+	esac
+	case $PCA_GPG_VERSION in
+		2.2.4|2.2.5)
+			error 99 "Your gnupg version $PCA_GPG_VERSION does not enforce a configuration in which key certification requires an offline master Certify key, which results in apparently valid certifications that occurred only with access to a signing subkey.$skip_vheck_msg"
+		;;
+		2.2.17|2.2.18|2.2.19)
+			do_hashcode=$(($do_hashcode+1))
+		;;
+		2.2.9|2.2.10|2.2.11|2.2.12|2.2.13|2.2.14|2.2.15|2.2.16)
+			error 98 "Your gnupg version $PCA_GPG_VERSION is vulnerable to DOS attacks on the SKS-Keyserver.$skip_vcheck_msg"
+		;;
+		2.2.6|2.2.7|2.2.8)
+			error 97 "Your gnupg version $PCA_GPG_VERSION mishandles the original filename during decryption and verification actions, which allows remote attackers to spoof the output that GnuPG sends on file descriptor 2.$skip_vcheck_msg"
+		;;
+		*)
+			error 96 "Your libgcrypt version $PCA_GPG_VERSION should not be used with Perfect-CA.$skip_vcheck_msg"
+		;;
+	esac
+	
+	[ "$do_hashcode" = 3 ] && PCA_HASHCODE=`echo "$PCA_SYSTEM $PCA_VERSION $PCA_SSL_VERSION $PCA_GPG_VERSION $PCA_LIBGCRYPT_VERSION" | $PCA_OPENSSL sha1 | $PCA_AWK '{print $2}'`
+	
+	LAST_HASHCODE=`cat "$PCA_BASE_PATH/.hashcode" 2>/dev/null`
+fi
+
+is_version_check=`echo "$*" | $PCA_GREP "version"`
+
+if [ "$LAST_HASHCODE" != "$PCA_HASHCODE" -a "$is_version_check" = "" ]; then 
+	if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
+		if [ -f "$PCA_BASE_PATH/.hashcode" ]; then
+			if [ "$1" = "--force-hashcode-ack" ]; then
+				echo "$PCA_HASHCODE" > $PCA_BASE_PATH/.hashcode 2>/dev/null || error 219 "Unable to create/update $PCA_BASE_PATH/.hashcode to new Hashcode. Please check filesystem and permissions."
+				echolog "[0;1;32;93mNew System-Hashcode: $PCA_HASHCODE[0m" "Forced hashcode update to $PCA_HASHCODE"
+				exit 222				
+			else
+				error 220 "System change detected. Hashcode differs. Use $PCA_REALCMD --force-hashcode-ack to acknowledge Hashcode changes."
+			fi
+		else
+ 			echo "$PCA_HASHCODE" > $PCA_BASE_PATH/.hashcode 2>/dev/null || error 219 "Unable to create/update $PCA_BASE_PATH/.hashcode to new Hashcode. Please check filesystem and permissions."
+ 			log "Hashcode file created with $PCA_HASHCODE"
+		fi
+	fi
+elif [ "$LAST_CHECKSUM" != "$PCA_CHECKSUM" -a "$is_version_check" = "" ]; then
+	if [ -f "$PCA_BASE_PATH/.checksum" ]; then
+		if [ "$1" = "--force-checksum-ack" ]; then
+			echo "$PCA_CHECKSUM" > $PCA_BASE_PATH/.checksum 2>/dev/null || error 218 "Unable to create/update $PCA_BASE_PATH/.checksum to new File-Checksum. Please check filesystem and permissions."
+			echolog "[0;1;32;93mNew Program-Checksum: $PCA_CHECKSUM[0m" "Forced checksum update to $PCA_CHECKSUM"
+			exit 222				
+		else
+			error 221 "File $PCA_REALCMD changed. To acknowledge the new checksum, use $PCA_REALCMD --force-checksum-ack"
+		fi
+	else
+		echo "$PCA_CHECKSUM" > $PCA_BASE_PATH/.checksum 2>/dev/null || error 218 "Unable to create/update $PCA_BASE_PATH/.checksum to new File-Checksum. Please check filesystem and permissions."
+		log "Checksum file created with $PCA_CHECKSUM"
+	fi
 fi
 
 # END SANITY CHECKS
@@ -261,7 +401,7 @@ fi
 function version()
 {
 	if [ "$1" = "" ];  then
-		echo -e "[0;1;32;93mPerfect-CA $PCA_VERSION using `$PCA_OPENSSL version` on\n$PCA_SYSTEM\nSystem-Hashcode: $PCA_HASHCODE[0m"
+		echo -e "[0;1;32;93mPerfect-CA: $PCA_VERSION\nOpenSSL: $PCA_SSL_VERSION\nGnuPG: $PCA_GPG_VERSION\nLibgcrypt: $PCA_LIBGCRYPT_VERSION\n\nSystem: $PCA_SYSTEM\n\nSystem-Hashcode: $PCA_HASHCODE\nProgram-Checksum: $PCA_CHECKSUM[0m"
 		exit 253
 	elif [ "$1" = "raw" ]; then
 		echo $PCA_VERSION
@@ -350,6 +490,44 @@ function config_header()
 	# $ident
 	# Generated at: $date
 
+	EOF
+}
+
+function config_gnupg()
+{
+	config_header $PCA_GNUPG_BASE_PATH/$1/gnupg.conf
+	cat <<-EOF
+	# Avoid leakage of information
+	no-emit-version
+	no-comments
+	export-options export-minimal
+
+	# Displays IDs, keys and fingerprints in their long format
+	keyid-format 0xlong
+	with-fingerprint
+
+	# Displays key validity
+	list-options show-uid-validity
+	verify-options show-uid-validity
+
+	# Limit the used algorithms
+	personal-cipher-preferences $PCA_GNUPG_PERSONAL_CIPHER_PREFS
+	personal-digest-preferences $PCA_GNUPG_PERSONAL_DIGEST_PREFS
+	default-preference-list $PCA_GNUPG_DEFAULT_PREFS_LIST
+
+	cipher-algo $PCA_GNUPG_CIPHER_ALGO
+	digest-algo $PCA_GNUPG_DIGEST_ALGO
+	
+	cert-digest-algo $PCA_GNUPG_CERT_DIGEST_ALGO
+	compress-algo $PCA_GNUPG_COMPRESS_ALGO
+
+	disable-cipher-algo $PCA_GNUPG_DISABLE_CIPHER_ALGO
+	weak-digest $PCA_GNUPG_WEAK_DIGEST
+
+	s2k-cipher-algo $PCA_GNUPG_S2K_CIPHER_ALGO
+	s2k-digest-algo $PCA_GNUPG_S2K_DIGEST_ALGO
+	s2k-mode $PCA_GNUPG_S2K_MODE
+	s2k-count $PCA_GNUPG_S2K_COUNT
 	EOF
 }
 
@@ -1510,7 +1688,11 @@ function help_switches()
 	# Operation modes:                                                           #
 	# ================                                                           #
 	#                                                                            #
-	# --setup                          Setup new certificate authorities.        #
+	# --setup                          Setup new CA and PGP infrastructure.      #
+	# --setup-ca                       Setup new certificate authorities only.   #
+	# --setup-pgp                      Setup new pretty good privacy only.       #
+	# --show-pgp-keybox                Show the GnuPG public keybox.             #
+	# --show-pgp-keylist               Show the GnuPG keylist.                   #
 	# --ocsp-server [port]             Start OCSP server on [port].              #
 	# --ocsp-verify [port]             Verify OCSP server on [port].             #
 	# --export-chain                   Export certificate chain of selected CA.  #
@@ -1528,6 +1710,8 @@ function help_switches()
 	# --install                        Install available updates from GitHub.    #
 	# --create-crontab                 Create (show) the CA maintain crontab.    #
 	# --create-ocsp-systemd-service    Create (show) an ocsp systemd service.    #
+	# --force-hashcode-ack             Writes the current hashcode to data file. #
+	# --force-checksum-ack             Writes the current checksum to data file. #
 	# --backup                         Backup the current certificate authority. #
 	# --restore                        Restore the given certificate authority.  #
 	#                                                                            #
@@ -1547,6 +1731,9 @@ function help_switches()
 	# --select-ca [CA]                 Select a specified CA from:               #
 	#                                  root-ca, master-ca, network-ca,           #
 	#                                  component-ca (default) or identity-ca     #
+	# --select-store [STORE]           Select a specified store from:            #
+	#                                  root-store, master-store, network-store,  #
+	#                                  component-store (def.) or identity-store  #
 	# --rc [rcfile]                    Use alternate resource control file.      #
 	# --ssl-certs [path]               Path to systems SSL database.             #
 	# --ssl-ca [path]                  Path to systems SSL CA subdirectory.      #
@@ -1665,6 +1852,7 @@ PCA_OPMODE=""
 PCA_USE_CONFIG=""
 PCA_FORCE=""
 PCA_SELECTED_CA="component-ca"
+PCA_SELECTED_STORE="component-store"
 PCA_FILENAME=""
 PCA_DAYS=""
 PCA_NAME=""
@@ -1675,9 +1863,10 @@ PCA_OCSP_PORT=""
 PCA_SKIP_PKCS12=""
 PCA_SKIP_GRACE=""
 PCA_CMD=`echo $* | cut -d \  -f2`
-PCA_CMD_VERSION_RAW=`echo $* | grep "version raw" >/dev/null 2>&1 && echo 1`
+PCA_CMD_VERSION_RAW=`echo $* | $PCA_GREP "version raw" >/dev/null 2>&1 && echo 1`
+PCA_CMD_HEADLESS=`echo $* | $PCA_GREP "headless" > /dev/null 2>&1 && echo 1`
 
-[ "$PCA_CMD_VERSION_RAW" = "" ] && cat <<EOF
+[ "$PCA_CMD_VERSION_RAW" = "" -a "$PCA_CMD_HEADLESS" = "" ] && cat <<EOF
 
  [0;1;31;91mm[0;1;33;93mmm[0;1;32;92mmm[0m                  [0;1;31;91mm"[0;1;33;93m"[0m                  [0;1;34;94mm[0m             [0;1;35;95mm[0;1;31;91mmm[0m    [0;1;36;96mmm[0m  
  [0;1;33;93m#[0m   [0;1;36;96m"[0;1;34;94m#[0m  [0;1;35;95mm[0;1;31;91mmm[0m    [0;1;36;96mm[0m [0;1;34;94mmm[0m  [0;1;31;91mmm[0;1;33;93m#m[0;1;32;92mm[0m   [0;1;34;94mmm[0;1;35;95mm[0m    [0;1;33;93mm[0;1;32;92mmm[0m   [0;1;34;94mm[0;1;35;95mm#[0;1;31;91mmm[0m         [0;1;35;95mm[0;1;31;91m"[0m   [0;1;32;92m"[0m   [0;1;34;94m##[0m  
@@ -1718,6 +1907,18 @@ for arg in $*; do
 		;;
 		--setup)
 			PCA_OPMODE="setup"
+		;;
+		--setup-ca)
+			PCA_OPMODE="setup-ca"
+		;;
+		--setup-pgp)
+			PCA_OPMODE="setup-pgp"
+		;;
+		--show-pgp-keybox)
+			PCA_OPMODE="show-pgp-keybox"
+		;;
+		--show-pgp-keylist)
+			PCA_OPMODE="show-pgp-keylist"
 		;;
 		--ocsp-server)
 			PCA_OPMODE="ocsp-server"
@@ -1766,6 +1967,10 @@ for arg in $*; do
 		;;
 		--select-ca)
 			PCA_SELECTED_CA="$2"
+			shift
+		;;
+		--select-store)
+			PCA_SELECTED_STORE="$2"
 			shift
 		;;
 		--identity-ca)
@@ -2139,7 +2344,7 @@ for arg in $*; do
 	shift
 done
 
-cat <<-EOF
+[ "$PCA_CMD_HEADLESS" = "" ] && cat <<-EOF
  [0;1;34;94mCopyright (c) 2018 - 2020 [0;1;32;92mOliver Welter[0;1;34;94m <[0;1;36;96moliver@welter.rocks[0;1;34;94m>[0m
  [0;1;34;94mSee [0;1;32;93mhttps://github.com/WelterRocks/perfect-ca[0;1;34;94m for details.[0m
 
@@ -2329,9 +2534,7 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_OPMODE" = "install" ]; then
 	[ -x "$PCA_GIT" ] || error 1 "Missing git"
 	echo -n "[0;1;34;94mChecking for updates...[0m"
 	mypwd=`pwd`
-	cmd=`which $PCA_PROGNAME`
-	[ "$cmd" = "" ] && cmd="$0"
-	check1=`$PCA_MD5SUM $cmd | $PCA_AWK '{print $1}'`
+	check1=`$PCA_MD5SUM $PCA_REALCMD | $PCA_AWK '{print $1}'`
 	tmp=`$PCA_MKTEMP -d -q --suffix .pca`
 	[ "$tmp" = "" ] && error 5 "Unable to create tmp directory"
 	cd $tmp &&
@@ -2367,13 +2570,18 @@ if [ "$PCA_OPMODE" = "update" -o "$PCA_OPMODE" = "install" ]; then
 			exit 1
 		else
 			check_version=`$tmp/perfect-ca/$PCA_PROGNAME --version $PCA_VERSION >/dev/null 2>&1; echo $?`
+			
+			new_hashcode=`$tmp/perfect-ca/$PCA_PROGNAME --version | $PCA_GREP "^System-Hashcode:" | $PCA_AWK '{print $2}'`
+			new_checksum=`$tmp/perfect-ca/$PCA_PROGNAME --version | $PCA_GREP "^Program-Checksum:" | $PCA_AWK '{print $2}'`
 
 			if [ "$check_version" = 2 -o "$check_version" = 4 -o "$check_version" = 6 ]; then
 				log "Installing update"
 				echo -n "[0;1;34;94mInstalling update...[0m"
-				inst=`cp -f $tmp/perfect-ca/$PCA_PROGNAME $cmd >/dev/null 2>&1 && echo 0 || echo 1`
+				inst=`cp -f $tmp/perfect-ca/$PCA_PROGNAME $PCA_REALCMD >/dev/null 2>&1 && echo 0 || echo 1`
 				[ "$inst" = "0" ] && echo $OK || echo $FAILED
 				[ "$inst" = "0" ] && log "Update installed successfully" || log "Failed to install update"
+				[ "$inst" = "0" ] && echo "$new_hashcode" > $PCA_BASE_PATH/.hashcode
+				[ "$inst" = "0" ] && echo "$new_checksum" > $PCA_BASE_PATH/.checksum
 				rm -rf $tmp >/dev/null 2>&1
 				exit $inst
 			else
@@ -2469,6 +2677,155 @@ fi
 # OPMODE: SETUP
 
 if [ "$PCA_OPMODE" = "setup" ]; then
+	if [ "$PCA_FORCE" = "" ]; then
+		$0 --headless --setup-pgp && $0 --headless --setup-ca && exit || error 3 "Setup has been interrupted by previous errors."
+	else
+		$0 --headless --setup-pgp --force && $0 --headless --setup-ca --force && exit || error 3 "Forced setup has been interrupted by previous errors."
+	fi
+fi
+
+# END OPMODE: SETUP
+##########################
+
+##########################
+# OPMODE: SETUP-PGP
+
+if [ "$PCA_OPMODE" = "setup-pgp" ]; then
+	if [ "$PCA_FORCE" = "" ]; then
+		[ -d "$PCA_GNUPG_BASE_PATH" ] && error 2 "Unable to start setup: PGP Home path exists"
+	fi
+
+	echo -n "[0;1;34;94mSetting up GnuPG paths...[0m"
+	
+	[ "$PCA_GNUPG_BASE_PATH" = "" ] && error 3 "Failsafe - GnuPG Home not set"
+	[ -d "$PCA_GNUPG_BASE_PATH" ] && rm -rf $PCA_GNUPG_BASE_PATH >/dev/null 2>&1 
+	
+	[ -d "$PCA_GNUPG_BASE_PATH/root-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/root-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/master-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/master-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/network-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/network-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/identity-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/identity-store/archive.d >/dev/null 2>&1
+	[ -d "$PCA_GNUPG_BASE_PATH/component-store" ] || mkdir -p $PCA_GNUPG_BASE_PATH/component-store/archive.d >/dev/null 2>&1
+
+	chmod -R 700 $PCA_GNUPG_BASE_PATH >/dev/null 2>&1
+	echo $OK
+	
+	for store in root-store master-store network-store identity-store component-store; do
+		echo -n "[0;1;34;94mPreparing GnuPG $store configuration...[0m"
+		export GNUPGHOME="$PCA_GNUPG_BASE_PATH/$store"
+		config_gnupg $store > $PCA_GNUPG_BASE_PATH/$store/gnupg.conf && \
+		echolog "$OK" "Setup: GnuPG $store configuration setup succeeded" || echolog "$FAILED" "Setup: GnuPG $store configuration setup failed"
+		
+		add_sign=1
+		add_auth=0
+		add_encrypt=0
+
+		GNUPG_OWNER_NAME="$PCA_GNUPG_ROOTSTORE_OWNER_NAME"
+		GNUPG_OWNER_EMAIL="$PCA_GNUPG_ROOTSTORE_OWNER_EMAIL"
+
+		if [ "$store" = "root-store" ]; then
+			echo -n "[0;1;34;94mGenerating $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-generate-key "$GNUPG_OWNER_NAME <$GNUPG_OWNER_EMAIL>" "$PCA_GNUPG_MASTERKEY_CERT_ALGO" cert $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey generated successfully" || echolog "$FAILED" "Setup: Failed generating GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
+		else
+			echo -n "[0;1;34;94mImporting masterkey for $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert...[0m"
+			importstore=""
+			case $store in
+				master-store)
+					GNUPG_OWNER_NAME="$PCA_GNUPG_MASTERSTORE_OWNER_NAME"
+					GNUPG_OWNER_EMAIL="$PCA_GNUPG_MASTERSTORE_OWNER_EMAIL"
+					importstore="root-store"
+				;;
+				network-store)
+					GNUPG_OWNER_NAME="$PCA_GNUPG_NETWORKSTORE_OWNER_NAME"
+					GNUPG_OWNER_EMAIL="$PCA_GNUPG_NETWORKSTORE_OWNER_EMAIL"
+					importstore="master-store"
+				;;
+				identity-store|component-store)
+					importstore="network-store"
+					add_encrypt=1
+					if [ "$store" = "identity-store" ]; then
+						GNUPG_OWNER_NAME="$PCA_GNUPG_IDENTITYSTORE_OWNER_NAME"
+						GNUPG_OWNER_EMAIL="$PCA_GNUPG_IDENTITYSTORE_OWNER_EMAIL"
+						add_auth=1
+					else
+						GNUPG_OWNER_NAME="$PCA_GNUPG_COMPONENTSTORE_OWNER_NAME"
+						GNUPG_OWNER_EMAIL="$PCA_GNUPG_COMPONENTSTORE_OWNER_EMAIL"
+					fi
+				;;
+			esac
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --import "$PCA_GNUPG_BASE_PATH/$importstore/archive.d/$importstore.priv.asc" >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey imported successfully" || echolog "$FAILED" "Setup: Failed importing GnuPG $store $PCA_GNUPG_MASTERKEY_CERT_ALGO-cert masterkey"
+		fi
+	
+		FPR=$($PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --list-options show-only-fpr-mbox --list-secret-keys 2>/dev/null | $PCA_AWK '{print $1}' | head -1)
+
+		if [ "$store" != "root-store" ]; then
+			echo -n "[0;1;34;94mAdding $store uid to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --quick-add-uid "$FPR" "$GNUPG_OWNER_NAME <$GNUPG_OWNER_EMAIL>" >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store uid added successfully" || echolog "$FAILED" "Setup: Failed adding uid to GnuPG $store"
+		fi
+		
+		if [ "$add_sign" = "1" ]; then
+			echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_SIGN_ALGO" sign $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_SIGN_ALGO-sign key"	
+		fi
+	
+		if [ "$add_encrypt" = "1" ]; then
+			echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO" encrypt $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_ENCRYPT_ALGO-encrypt key"	
+		fi
+
+		if [ "$add_auth" = "1" ]; then
+			echo -n "[0;1;34;94mAdding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth to masterkey...[0m"
+			$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --passphrase '' --quick-add-key "$FPR" "$PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO" auth $PCA_GNUPG_MASTERKEY_KEY_LIFETIME >/dev/null 2>&1 && \
+			echolog "$OK" "Setup: GnuPG $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key added successfully" || echolog "$FAILED" "Setup: Failed adding $store $PCA_GNUPG_MASTERKEY_AUTHENTICATE_ALGO-auth key"	
+		fi
+	
+		if [ "$store" != "root-store" ]; then
+			echo -n "[0;1;34;94mCreating $store revocation list:[0m"
+			mkdir -p "$PCA_GNUPG_BASE_PATH/$store/openpgp-revocs.d" >/dev/null 2>&1
+			echo -e "y\n0\n\ny\n" | $PCA_GNUPG --command-fd 0 --status-fd 2 --homedir "$PCA_GNUPG_BASE_PATH/$store" --output "$PCA_GNUPG_BASE_PATH/$store/openpgp-revocs.d/$FPR.rev" --gen-revoke "$FPR" >/dev/null 2>&1
+		fi
+		
+		echo -n "[0;1;34;94mCopying $store revocation list to archive...[0m"
+		cp "$PCA_GNUPG_BASE_PATH/$store/openpgp-revocs.d/$FPR.rev" "$PCA_GNUPG_BASE_PATH/$store/archive.d" >/dev/null 2>&1 && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.rev" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.rev" && \
+		echo $OK || echo $FAILED
+
+		echo -n "[0;1;34;94mExporting $store public key to archive...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --export --armor "$FPR" > "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.pub.asc" 2>/dev/null && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.pub.asc" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.pub.asc" && \
+		echo $OK || echo $FAILED
+	
+		echo -n "[0;1;34;94mExporting $store private key to archive...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --export-secret-keys --armor "$FPR" > "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.priv.asc" 2>/dev/null && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.priv.asc" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.priv.asc" && \
+		echo $OK || echo $FAILED
+	
+		echo -n "[0;1;34;94mExporting $store private subkeys to archive...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --export-secret-subkeys --armor "$FPR" > "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.sub_priv.asc" 2>/dev/null && ln -sf "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.sub_priv.asc" "$PCA_GNUPG_BASE_PATH/$store/archive.d/$store.sub_priv.asc" && \
+		echo $OK || echo $FAILED
+	
+		echo -n "[0;1;34;94mDeleting $store private masterkey...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --batch --yes --delete-secret-key "$FPR" >/dev/null 2>&1 && \
+		echolog "$OK" "Setup: GnuPG $store private masterkey deleted" || echolog "$FAILED" "Setup: Failed to delete GnuPG $store private masterkey"
+	
+		echo -n "[0;1;34;94mRe-Importing $store private subkeys of masterkey...[0m"
+		$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$store" --import "$PCA_GNUPG_BASE_PATH/$store/archive.d/$FPR.sub_priv.asc" >/dev/null 2>&1 && \
+		echolog "$OK" "Setup: GnuPG $store private subkeys of masterkey re-imported" || echolog "$FAILED" "Setup: Failed to reimport GnuPG $store private subkeys of masterkey"
+
+		echo -n "[0;1;34;94mKilling $store agent...[0m"
+		[ -f "$PCA_GNUPG_BASE_PATH/$store/S.gpg-agent" ] && $PCA_GNUPG_CONNECT_AGENT --homedir "$PCA_GNUPG_BASE_PATH/$store" KILLAGENT /bye >/dev/null 2>&1
+		echo $OK
+	done
+fi
+
+# END OPMODE: SETUP-PGP
+##########################
+
+##########################
+# OPMODE: SETUP-CA
+
+if [ "$PCA_OPMODE" = "setup-ca" ]; then
 	if [ "$PCA_FORCE" = "" ]; then
 		[ -d "$PCA_BASE_PATH/ca/root-ca" ] && error 2 "Unable to start setup: Root CA path exists"
 		[ -d "$PCA_BASE_PATH/ca/master-ca" ] && error 2 "Unable to start setup: Master CA path exists"
@@ -2702,7 +3059,7 @@ if [ "$PCA_OPMODE" = "setup" ]; then
 	exit
 fi
                                                                       
-# END OPMODE: SETUP
+# END OPMODE: SETUP-CA
 ##########################
 
 ##########################
@@ -2918,7 +3275,7 @@ if [ "$PCA_OPMODE" = "renew-ca" ]; then
 		for pth in root-ca master-ca network-ca component-ca identity-ca; do
 			echo -n "[0;1;34;94mChecking validity of $pth...[0m"
 		
-			dateCert=`openssl x509 -in $PCA_BASE_PATH/ca/certs/$pth.pem -noout -dates | grep notAfter | cut -d = -f2`
+			dateCert=`openssl x509 -in $PCA_BASE_PATH/ca/certs/$pth.pem -noout -dates | $PCA_GREP notAfter | cut -d = -f2`
 			dateCertTS=`date -d "${dateCert}" +%s`
 			certValid=$(($dateCertTS > $dateNow))
 			graceTime=$((86400 * $PCA_GRACEDAYS))
@@ -3422,6 +3779,28 @@ fi
 
 # END OPMODE: RESTORE
 ##########################
+
+#############################
+# OPMODE: SHOW-PGP-KEYBOX
+
+if [ "$PCA_OPMODE" = "show-pgp-keybox" ]; then
+	export GNUPGHOME="$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE"
+	$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE" -K
+fi
+
+# END OPMODE: SHOW-PGP-KEYBOX
+#############################
+
+##############################
+# OPMODE: SHOW-PGP-KEYLIST
+
+if [ "$PCA_OPMODE" = "show-pgp-keylist" ]; then
+	export GNUPGHOME="$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE"
+	$PCA_GNUPG --homedir "$PCA_GNUPG_BASE_PATH/$PCA_SELECTED_STORE" --list-options show-only-fpr-mbox --list-secret-keys
+fi
+
+# END OPMODE: SHOW-PGP-KEYLIST
+##############################
 
 ##########################
 # OPMODE: ---
