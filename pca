@@ -120,6 +120,9 @@ PCA_IDENTITY_MD="sha256"
 PCA_SMIME_BITS="4096"
 PCA_SMIME_MD="sha256"
 
+PCA_WINDOWS_BITS="4096"
+PCA_WINDOWS_MD="sha256"
+
 PCA_GRACEDAYS="14"
 
 PCA_GNUPG_ROOTSTORE_OWNER_NAME="Root Store"
@@ -281,7 +284,7 @@ function error()
 
 PCA_GITHUB="https://github.com/WelterRocks/perfect-ca"
 PCA_PROGNAME="pca"
-PCA_VERSION="1.04.1002"
+PCA_VERSION="1.04.1086"
 PCA_REALCMD=`$PCA_REALPATH $0`
 
 PCA_SSL_VERSION=`$PCA_OPENSSL version | $PCA_AWK '{print $2}'`
@@ -564,6 +567,7 @@ function config_ca_section_default()
 	assurance=""
 	deviceass=""
 	trustlist=""
+	drivecrypt=""
 	ocsp_port=""
 	
 	case $1 in
@@ -577,6 +581,7 @@ function config_ca_section_default()
 			assurance="1"
 			deviceass="1"
 			trustlist="1"
+			
 			ocsp_port="$PCA_MASTERCA_OCSP_PORT"
 		;;
 		network-ca)
@@ -593,6 +598,7 @@ function config_ca_section_default()
 		identity-ca)
 			assurance="1"
 			trustlist="1"
+			drivecrypt="1"
 			ocsp_port="$PCA_IDENTITYCA_OCSP_PORT"
 		;;
 		*)
@@ -622,9 +628,13 @@ function config_ca_section_default()
 	perfectCAEVRandomOID	= $PCA_BASE_NAME EV Random OID, $PCA_BASE_RANDOM_EV_OID
 	EOF
 	
-	[ "$assurance" = "1" ] && echo "perfectCAAssurance      = $PCA_BASE_NAME Assurance, 1.3.6.1.4.1.0.1.7.8"
-	[ "$deviceass" = "1" ] && echo "perfectCADevice         = $PCA_BASE_NAME Device Assurance, 1.3.6.1.4.1.0.1.7.9"
-	[ "$trustlist" = "1" ] && echo "perfectCATrustList      = $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID"
+	[ "$assurance" = "1" ] && echo "perfectCAAssurance              = $PCA_BASE_NAME Assurance, 1.3.6.1.4.1.0.1.7.8"
+	[ "$deviceass" = "1" ] && echo "perfectCADevice                 = $PCA_BASE_NAME Device Assurance, 1.3.6.1.4.1.0.1.7.9"
+	[ "$trustlist" = "1" ] && echo "perfectCATrustList              = $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID"
+	
+	[ "$drivecrypt" = "1" ] && echo "bitlockerDriveEncryption        = Microsoft BitLocker Drive Encryption, 1.3.6.1.4.1.311.67.1.1"
+	[ "$drivecrypt" = "1" ] && echo "bitlockerDataRecoveryAgent      = Microsoft BitLocker Data Recovery Agent, 1.3.6.1.4.1.311.67.1.2"
+	[ "$drivecrypt" = "1" ] && echo "keyRecoveryAgent                = Microsoft Key Recovery Agent, 1.3.6.1.4.1.311.21.6"
 	
 	echo ""
 }
@@ -1056,7 +1066,17 @@ function config_ca_section_ext()
 	[ identity_ext ]
 	keyUsage                = critical,digitalSignature
 	basicConstraints        = CA:false
-	extendedKeyUsage        = emailProtection,clientAuth,msSmartcardLogin
+	extendedKeyUsage        = emailProtection,clientAuth,codeSigning,msSmartcardLogin
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	crlDistributionPoints   = @crl_info
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList
+	
+	[ windows_ext ]
+	keyUsage                = critical,keyEncipherment,dataEncipherment,keyAgreement,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = emailProtection,clientAuth,serverAuth,codeSigning,msSmartcardLogin,msEFS,bitlockerDriveEncryption,bitlockerDataRecoveryAgent,keyRecoveryAgent
 	subjectKeyIdentifier    = hash
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
@@ -1064,9 +1084,9 @@ function config_ca_section_ext()
 	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
 	[ encryption_ext ]
-	keyUsage                = critical,keyEncipherment
+	keyUsage                = critical,keyEncipherment,dataEncipherment,keyAgreement
 	basicConstraints        = CA:false
-	extendedKeyUsage        = emailProtection,msEFS
+	extendedKeyUsage        = emailProtection,bitlockerDriveEncryption,bitlockerDataRecoveryAgent,keyRecoveryAgent,msEFS
 	subjectKeyIdentifier    = hash
 	authorityKeyIdentifier  = keyid:always
 	authorityInfoAccess     = @issuer_info
@@ -1074,7 +1094,7 @@ function config_ca_section_ext()
 	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
 	[ smime_ext ]
-	keyUsage                = critical,keyEncipherment,digitalSignature
+	keyUsage                = critical,keyEncipherment,keyAgreement,digitalSignature
 	basicConstraints        = CA:false
 	extendedKeyUsage        = emailProtection
 	subjectKeyIdentifier    = hash
@@ -1256,7 +1276,7 @@ function config_ca_tmpl_identity()
 	
 	[ identity_reqext ]
 	keyUsage                = critical,digitalSignature
-	extendedKeyUsage        = emailProtection,clientAuth
+	extendedKeyUsage        = emailProtection,clientAuth,codeSigning,msSmartcardLogin
 	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
 	subjectKeyIdentifier    = hash
 	subjectAltName          = @subj_alt_name
@@ -1273,6 +1293,92 @@ function config_ca_tmpl_identity()
 	otherName.2             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpps-server.$PCA_BASE_XMPPHOST
 	otherName.3             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpps-client.$PCA_BASE_XMPPHOST
 	otherName.4             = perfectCAXMPPJID;FORMAT:UTF8,UTF8:\${identity_dn::commonName}
+	EOF
+	else
+	cat <<-EOF
+	DNS			= $PCA_BASE_XMPPDOMAIN
+	EOF
+	fi
+}
+
+function config_ca_tmpl_windows()
+{
+	cat <<-EOF
+	[ default ]
+	openssl_conf			= openssl_init
+	
+	[ openssl_init ]
+	oid_section             	= include_oids
+
+	[ include_oids ]
+	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
+	perfectCAServiceEntry		= $PCA_BASE_NAME Service Entry, 1.3.6.1.5.5.7.8.7
+	perfectCAXMPPJID		= $PCA_BASE_NAME XMPP JID, 1.3.6.1.5.5.7.8.5
+	bitlockerDriveEncryption        = Microsoft BitLocker Drive Encryption, 1.3.6.1.4.1.311.67.1.1
+	bitlockerDataRecoveryAgent      = Microsoft BitLocker Data Recovery Agent, 1.3.6.1.4.1.311.67.1.2
+	keyRecoveryAgent                = Microsoft Key Recovery Agent, 1.3.6.1.4.1.311.21.6
+
+	[ req ]
+	default_bits            	= $PCA_WINDOWS_BITS
+	encrypt_key             	= yes
+	default_md              	= $PCA_WINDOWS_MD
+	utf8                    	= yes
+	string_mask             	= utf8only
+	prompt                  	= yes
+	distinguished_name      	= windows_dn
+	req_extensions          	= windows_reqext
+	
+	[ windows_dn ]
+	countryName             	= "1. Country Name (2 letters) (eg, US)       "
+	countryName_max         	= 2
+	countryName_default		= "$PCA_DN_COUNTRYNAME"
+	stateOrProvinceName     	= "2. State or Province Name   (eg, region)   "
+	stateOrProvinceName_default	= "$PCA_DN_STATEORPROVINCENAME"
+	localityName            	= "3. Locality Name            (eg, city)     "
+	localityName_default		= "$PCA_DN_LOCALITYNAME"
+	postalCode              	= "4. Postal code              (eg, 12345)    "
+	postalCode_max          	= 5
+	postalCode_default		= "$PCA_DN_POSTALCODE"
+	streetAddress           	= "5. Street address           (eg, street)   "
+	streetAddress_default		= "$PCA_DN_STREETADDRESS"
+	organizationName        	= "6. Organization Name        (eg, company)  "
+	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
+	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
+	organizationalUnitName_default	= "$PCA_IDENTITYCA_ORG_UNIT_NAME"
+	owner                   	= "8. Owner                    (eg, name)     "
+	owner_default			= "$PCA_DN_OWNER"
+	givenName                       = "9. First Name               (eg, Oliver)   "
+	name                            = "10. Middle Name             (eg, Karl)     "
+	surname                         = "11. Last Name               (eg, Welter)   "
+	initials                        = "12. Initials                (eg, OW)       "
+	pseudonym                       = "13. Pseudonym               (eg, username) "
+	commonName              	= "14. Common Name             (eg, IAServer) "
+	commonName_max          	= 64
+	emailAddress            	= "15. Email Address           (eg, name@fqdn)"
+	emailAddress_max        	= 40
+	telephoneNumber                 = "16. Telephone Number        (eg, 555-12345)"
+	serialNumber                    = "17. Birthdate               (eg 2018-12-31)"
+	description                     = "18. Description             (MAC-Addr@VLAN)"
+	
+	[ windows_reqext ]
+	keyUsage                = critical,keyEncipherment,dataEncipherment,keyAgreement,digitalSignature
+	extendedKeyUsage        = emailProtection,clientAuth,serverAuth,codeSigning,bitlockerDriveEncryption,bitlockerDataRecoveryAgent,keyRecoveryAgent,msSmartcardLogin,msEFS
+	perfectCATrustList      = ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
+	subjectKeyIdentifier    = hash
+	subjectAltName          = @subj_alt_name
+	
+	[ subj_alt_name ]
+	EOF
+	
+	if [ "$PCA_BASE_XMPPHOST" != "" ]; then
+	cat <<-EOF
+	DNS.0			= $PCA_BASE_XMPPDOMAIN
+	DNS.1			= $PCA_BASE_XMPPHOST
+	otherName.0             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpp-server.$PCA_BASE_XMPPHOST
+	otherName.1             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpp-client.$PCA_BASE_XMPPHOST
+	otherName.2             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpps-server.$PCA_BASE_XMPPHOST
+	otherName.3             = perfectCAServiceEntry;FORMAT:UTF8,UTF8:_xmpps-client.$PCA_BASE_XMPPHOST
+	otherName.4             = perfectCAXMPPJID;FORMAT:UTF8,UTF8:\${windows_dn::commonName}
 	EOF
 	else
 	cat <<-EOF
@@ -1345,6 +1451,9 @@ function config_ca_tmpl_encryption()
 
 	[ include_oids ]
 	perfectCATrustList      	= $PCA_BASE_NAME Trust List, $PCA_BASE_ETL_POLICY_OID
+	bitlockerDriveEncryption        = Microsoft BitLocker Drive Encryption, 1.3.6.1.4.1.311.67.1.1
+	bitlockerDataRecoveryAgent      = Microsoft BitLocker Data Recovery Agent, 1.3.6.1.4.1.311.67.1.2
+	keyRecoveryAgent                = Microsoft Key Recovery Agent, 1.3.6.1.4.1.311.21.6
 
 	[ req ]
 	default_bits            	= $PCA_ENCRYPTION_BITS
@@ -1381,8 +1490,8 @@ function config_ca_tmpl_encryption()
 	emailAddress_max        	= 40
 	
 	[ encryption_reqext ]
-	keyUsage                	= critical,keyEncipherment
-	extendedKeyUsage        	= emailProtection
+	keyUsage                	= critical,keyEncipherment,dataEncipherment,keyAgreement
+	extendedKeyUsage        	= emailProtection,bitlockerDriveEncryption,bitlockerDataRecoveryAgent,keyRecoveryAgent,msEFS
 	subjectKeyIdentifier    	= hash
 	subjectAltName          	= email:move
 	perfectCATrustList      	= ASN1:UTF8String:$PCA_BASE_TRUSTLIST_URL
@@ -1645,6 +1754,10 @@ function configuration_write()
 	config_ca_tmpl_identity >> $PCA_BASE_PATH/ca/conf/identity.conf
 	chmod 640 $PCA_BASE_PATH/ca/conf/identity.conf >/dev/null 2>&1
 
+	config_header "Windows template" > $PCA_BASE_PATH/ca/conf/windows.conf || return 2
+	config_ca_tmpl_windows >> $PCA_BASE_PATH/ca/conf/windows.conf
+	chmod 640 $PCA_BASE_PATH/ca/conf/windows.conf >/dev/null 2>&1
+
 	config_header "Timestamp template" > $PCA_BASE_PATH/ca/conf/timestamp.conf || return 2
 	config_ca_tmpl_timestamp >> $PCA_BASE_PATH/ca/conf/timestamp.conf
 	chmod 640 $PCA_BASE_PATH/ca/conf/timestamp.conf >/dev/null 2>&1
@@ -1778,6 +1891,7 @@ function help_switches()
 	# --component-ca                   Use configuration for Component-CA.       #
 	# --identity-ca                    Use configuration for Identity-CA.        #
 	# --identity                       Use configuration for an identity cert.   #
+	# --windows                        Use configuration for a windows cert.     #
 	# --ev                             Use configuration for extended validation.#
 	# --server                         Use configuration for a server cert.      #
 	# --client                         Use configuration for a client cert.      #
@@ -1863,6 +1977,9 @@ function help_switches()
 	#                                                                            #
 	# --smime-bits [...]                                                         #
 	# --smime-md [...]                                                           #
+	#                                                                            #
+	# --windows-bits [...]                                                       #
+	# --windows-md [...]                                                         #
 	#                                                                            #
 	# --gracedays [...]                                                          #
 	#                                                                            #
@@ -2070,6 +2187,9 @@ for arg in $*; do
 		--identity)
 			PCA_USE_CONFIG="identity"
 		;;
+		--windows)
+			PCA_USE_CONFIG="windows"
+		;;
 		--ev)
 			PCA_USE_CONFIG="ev"
 		;;
@@ -2087,6 +2207,9 @@ for arg in $*; do
 		;;
 		--smime)
 			PCA_USE_CONFIG="smime"
+		;;
+		--windows)
+			PCA_USE_CONFIG="windows"
 		;;
 		--ocspsign)
 			PCA_USE_CONFIG="ocspsign"
@@ -2343,6 +2466,14 @@ for arg in $*; do
 		;;
 		--smime-md)
 			PCA_SMIME_MD="$2"
+			shift
+		;;
+		--windows-bits)
+			PCA_WINDOWS_BITS="$2"
+			shift
+		;;
+		--windows-md)
+			PCA_WINDOWS_MD="$2"
 			shift
 		;;
 		--gracedays)
@@ -3103,7 +3234,7 @@ if [ "$PCA_OPMODE" = "create-request" -o "$PCA_OPMODE" = "create-certificate" ];
 	[ "$PCA_NODES" = "" ] || opts="-nodes $opts"
 	
 	case $PCA_USE_CONFIG in
-		identity|ev|server|client|timestamp|smime|encryption|ocspsign)
+		identity|windows|ev|server|client|timestamp|smime|encryption|ocspsign)
 			config="$PCA_BASE_PATH/ca/conf/$PCA_USE_CONFIG.conf"
 		;;
 		*)
@@ -3139,7 +3270,7 @@ if [ "$PCA_OPMODE" = "sign-request" -o "$PCA_OPMODE" = "create-certificate" ]; t
 			ext="${PCA_USE_CONFIG}_ext"
 			days="$PCA_COMPONENTCA_VALID_DAYS"
 		;;
-		identity|encryption|smime)
+		identity|windows|encryption|smime)
 			config="$PCA_BASE_PATH/ca/conf/identity-ca.conf"
 			ext="${PCA_USE_CONFIG}_ext"
 			days="$PCA_IDENTITYCA_VALID_DAYS"
@@ -3210,7 +3341,7 @@ if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
 			chain="component-chain.pem"
 			opts="-caname '$PCA_COMPONENTCA_ORG_UNIT_NAME' -caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
 		;;
-		identity|encryption|smime)
+		identity|windows|encryption|smime)
 			chain="identity-chain.pem"
 			opts="-caname '$PCA_IDENTITYCA_ORG_UNIT_NAME' -caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
 		;;
