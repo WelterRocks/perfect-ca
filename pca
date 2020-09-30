@@ -284,7 +284,7 @@ function error()
 
 PCA_GITHUB="https://github.com/WelterRocks/perfect-ca"
 PCA_PROGNAME="pca"
-PCA_VERSION="1.04.1094"
+PCA_VERSION="1.04.1095"
 PCA_REALCMD=`$PCA_REALPATH $0`
 
 PCA_SSL_VERSION=`$PCA_OPENSSL version | $PCA_AWK '{print $2}'`
@@ -1350,8 +1350,8 @@ function config_ca_tmpl_windows()
 	name                            = "10. Middle Name             (eg, Karl)     "
 	surname                         = "11. Last Name               (eg, Welter)   "
 	initials                        = "12. Initials                (eg, OW)       "
-	pseudonym                       = "13. Windows User            (eg, username) "
-	commonName              	= "14. Common Name             (eg, hostname) "
+	pseudonym                       = "13. Windows Username        (eg, username) "
+	commonName              	= "14. Windows Hostname        (eg, hostname) "
 	commonName_max          	= 64
 	emailAddress            	= "15. Email Address           (eg, name@fqdn)"
 	emailAddress_max        	= 40
