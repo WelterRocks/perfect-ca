@@ -284,7 +284,7 @@ function error()
 
 PCA_GITHUB="https://github.com/WelterRocks/perfect-ca"
 PCA_PROGNAME="pca"
-PCA_VERSION="1.04.1095"
+PCA_VERSION="1.05.11"
 PCA_REALCMD=`$PCA_REALPATH $0`
 
 PCA_SSL_VERSION=`$PCA_OPENSSL version | $PCA_AWK '{print $2}'`
@@ -306,7 +306,7 @@ LAST_CHECKSUM=`cat "$PCA_BASE_PATH/.checksum" 2>/dev/null`
 if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
 	[ "$PCA_GPG_V2" = "" ] && error 112 "GnuPG is only supported in version 2"
 
-	skip_vcheck_msg="\nYou can disable this check by using --skip-ssl-version-check"
+	skip_vcheck_msg="\nYou can disable this check by using --skip-version-check"
 	do_hashcode=0
 	case $PCA_SSL_VERSION_NUMBER in
 		1.0.1)
@@ -316,8 +316,25 @@ if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
 				fi
 			fi
 		;;
-		1.0.0|1.1.1)
+		1.0.0)
 			do_hashcode=$(($do_hashcode+1))
+		;;
+		1.0.2|1.1.1)
+			case $PCA_SSL_VERSION in				
+				1.0.2x|1.1.1i)
+					do_hashcode=$(($do_hashcode+1))
+				;;
+				1.1.1d|1.1.1e|1.1.1f)
+					if [ "$PCA_OPENSSL_EXPLICIT_ALLOW" != "$PCA_SSL_VERSION" ]; then
+						error 97 "Your openssl version $PCA_SSL_VERSION is affected by DoS vulnerability (see CVE-2020-1967).$skip_vcheck_msg"
+					fi			
+				;;
+				*)
+					if [ "$PCA_OPENSSL_EXPLICIT_ALLOW" != "$PCA_SSL_VERSION" ]; then
+						error 97 "Your openssl version $PCA_SSL_VERSION is affected by DoS vulnerability (see CVE-2020-1971).$skip_vcheck_msg"
+					fi			
+				;;
+			esac
 		;;
 		0.9.6|0.9.7|0.9.8)
 			if [ "$PCA_OPENSSL_EXPLICIT_ALLOW" != "$PCA_SSL_VERSION_NUMBER" ]; then
@@ -331,7 +348,12 @@ if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
 		;;
 	esac
 	case $PCA_LIBGCRYPT_VERSION in
-		1.8.5)
+		1.9.0)
+			if [ "$PCA_LIBGCRYPT_EXPLICIT_ALLOW" != "$PCA_LIBGCRYPT_VERSION" ]; then
+				error 100 "Your libgcrypt version $PCA_LIBGCRYPT_VERSION is affected by the heap-based buffer overflow bug.$skip_vcheck_msg"
+			fi			
+		;;
+		1.8.5|1.8.6|1.8.7|1.8.8|1.8.9|1.9.1)
 			do_hashcode=$(($do_hashcode+1))
 		;;
 		1.8.4)
@@ -366,8 +388,18 @@ if [ "$PCA_SKIP_VERSION_CHECK" = "" ]; then
 				error 99 "Your gnupg version $PCA_GPG_VERSION does not enforce a configuration in which key certification requires an offline master Certify key, which results in apparently valid certifications that occurred only with access to a signing subkey.$skip_vheck_msg"
 			fi
 		;;
-		2.2.17|2.2.18|2.2.19)
+		2.2.17|2.2.19|2.2.23|2.2.24|2.2.25|2.2.26|2.2.27)
 			do_hashcode=$(($do_hashcode+1))
+		;;
+		2.2.18)
+			if [ "$PCA_GPG_EXPLICIT_ALLOW" != "$PCA_GPG_VERSION" ]; then
+				error 101 "Your gnupg version $PCA_GPG_VERSION is vulnerable via the forged certificate signature bug.$skip_vcheck_msg"
+			fi
+		;;
+		2.2.21|2.2.22)
+			if [ "$PCA_GPG_EXPLICIT_ALLOW" != "$PCA_GPG_VERSION" ]; then
+				error 100 "Your gnupg version $PCA_GPG_VERSION has an array overflow, leading to a crash or unspecified impact.$skip_vcheck_msg"
+			fi
 		;;
 		2.2.9|2.2.10|2.2.11|2.2.12|2.2.13|2.2.14|2.2.15|2.2.16)
 			if [ "$PCA_GPG_EXPLICIT_ALLOW" != "$PCA_GPG_VERSION" ]; then
