@@ -33,7 +33,7 @@ Than, create a pki store, copy your *pcarc* file to it and edit *pcarc* to your 
  cp pca /usr/bin
  chmod 755 /usr/bin/pca
  mkdir -p /etc/pki
- cp etc-samples/pki/pcarc /etc/pki
+ cp etc-sample/pki/pcarc /etc/pki
 </code></pre>
 
 Because *joe* is my favorite editor, I will use joe in my examples. Feel

@@ -94,6 +94,7 @@ PCA_IDENTITYCA_CRL_DAYS="180"
 PCA_IDENTITYCA_ORG_UNIT_NAME="$PCA_BASE_NAME Identity Certificate Authority"
 PCA_IDENTITYCA_OCSP_PORT="8884"
 
+PCA_OCSPSIGN_ORG_UNIT_NAME="$PCA_BASE_NAME Online Responder"
 PCA_OCSPSIGN_BITS="2048"
 PCA_OCSPSIGN_MD="sha1"
 
@@ -284,7 +285,7 @@ function error()
 
 PCA_GITHUB="https://github.com/WelterRocks/perfect-ca"
 PCA_PROGNAME="pca"
-PCA_VERSION="1.05.11"
+PCA_VERSION="1.05.15"
 PCA_REALCMD=`$PCA_REALPATH $0`
 
 PCA_SSL_VERSION=`$PCA_OPENSSL version | $PCA_AWK '{print $2}'`
@@ -1235,7 +1236,7 @@ function config_ca_tmpl_ocspsign()
 	organizationName        	= "6. Organization Name        (eg, company)  "
 	organizationName_default	= "$PCA_DN_ORGANIZATIONNAME"
 	organizationalUnitName  	= "7. Organizational Unit Name (eg, section)  "
-	organizationalUnitName_default	= "$PCA_COMPONENTCA_ORG_UNIT_NAME"
+	organizationalUnitName_default	= "$PCA_OCSPSIGN_ORG_UNIT_NAME"
 	owner                   	= "8. Owner                    (eg, name)     "
 	owner_default			= "$PCA_DN_OWNER"
 	commonName              	= "9. Common Name              (eg, full name)"
@@ -3208,7 +3209,7 @@ if [ "$PCA_OPMODE" = "setup-ca" ]; then
 	
 	echo -e "\n[0;1;34;94mPlease create your OCSP signing certificates\nand the online-responder services right now, with the following commands:[0m"
 	for pth in root-ca master-ca network-ca component-ca identity-ca; do
-		echo "# $0 --create-certificate --skip-pkcs12 --ocspsign --$pth --filename ocsp-$pth"
+		echo "# $0 --create-certificate --skip-pkcs12 --$pth --ocspsign --filename ocsp-$pth"
 		echo "# $0 --create-ocsp-systemd-service --$pth > /lib/systemd/system/$PCA_PROGNAME-$pth-ocsp.service"
 	done
 	echo "# systemctl daemon-reload"
@@ -3278,7 +3279,33 @@ if [ "$PCA_OPMODE" = "sign-request" -o "$PCA_OPMODE" = "create-certificate" ]; t
 	opts="" 
 	
 	case $PCA_USE_CONFIG in
-		ev|server|client|timestamp|ocspsign)
+		ocspsign)
+			config="$PCA_BASE_PATH/ca/conf/$PCA_SELECTED_CA.conf"
+			[ -f "$config" ] || error 6 "Unable to find selected CA"
+			ext="${PCA_USE_CONFIG}_ext"
+			
+			case $PCA_SELECTED_CA in
+				root-ca)
+					days="$PCA_ROOTCA_VALID_DAYS"
+				;;
+				master-ca)
+					days="$PCA_MASTERCA_VALID_DAYS"
+				;;
+				network-ca)
+					days="$PCA_NETWORKCA_VALID_DAYS"
+				;;
+				component-ca)
+					days="$PCA_COMPONENTCA_VALID_DAYS"
+				;;
+				identity-ca)
+					days="$PCA_IDENTITYCA_VALID_DAYS"
+				;;
+				*)
+					error 7 "Invalid CA selected"
+				;;
+			esac
+		;;
+		ev|server|client|timestamp)
 			config="$PCA_BASE_PATH/ca/conf/component-ca.conf"
 			ext="${PCA_USE_CONFIG}_ext"
 			days="$PCA_COMPONENTCA_VALID_DAYS"
@@ -3299,13 +3326,13 @@ if [ "$PCA_OPMODE" = "sign-request" -o "$PCA_OPMODE" = "create-certificate" ]; t
 			ext="${PCA_USE_CONFIG}_ext"
 			
 			case $PCA_SELECTED_CA in
-				root_ca)
+				root-ca)
 					days="$PCA_ROOTCA_VALID_DAYS"
 				;;
-				master_ca)
+				master-ca)
 					days="$PCA_MASTERCA_VALID_DAYS"
 				;;
-				network_ca)
+				network-ca)
 					days="$PCA_NETWORKCA_VALID_DAYS"
 				;;
 				*)
@@ -3350,7 +3377,10 @@ if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
 	opts=""
 	
 	case $PCA_USE_CONFIG in
-		ev|server|client|timestamp|ocspsign)
+		ocspsign)
+			chain=""
+		;;
+		ev|server|client|timestamp)
 			chain="component-chain.pem"
 			opts="-caname '$PCA_COMPONENTCA_ORG_UNIT_NAME' -caname '$PCA_NETWORKCA_ORG_UNIT_NAME' -caname '$PCA_MASTERCA_ORG_UNIT_NAME' -caname '$PCA_ROOTCA_ORG_UNIT_NAME'"
 		;;
@@ -3397,7 +3427,7 @@ if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
 	[ "$PCA_NAME" = "" ] || opts="-name '$PCA_NAME' $opts"
 	[ "$PCA_NODES" = "" ] || opts="-nodes $opts"
 	
-	/bin/bash -c "$PCA_OPENSSL pkcs12 -export $opts \
+	[ "$chain" != "" ] && /bin/bash -c "$PCA_OPENSSL pkcs12 -export $opts \
 		-inkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
 		-in $PCA_BASE_PATH/ca/certs/$PCA_FILENAME.pem \
 		-certfile $PCA_BASE_PATH/ca/certs/$chain \
