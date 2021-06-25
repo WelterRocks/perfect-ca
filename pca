@@ -32,7 +32,7 @@ function license()
 ##########################
 # BASIC CONFIGRATION
 
-PCA_BACKUP_PATH="/var/backup/pki"
+PCA_BACKUP_PATH="/var/backups/pki"
 PCA_BACKUP_KEY="ADI2E2FeyCbxQdV5MqACjR9mPv0qw1Cg"
 PCA_BACKUP_ROTATE_DAYS="7"
 
@@ -1881,6 +1881,7 @@ function help_switches()
 	# --skip-gracetime                 Skip grace period for certificate renewal.#
 	# --crl-reason [reason]            Set revocation reason (def. superseded).  #
 	# --name [name]                    Set name for .p12 files.                  #
+	# --password [password]            Use password from command line in exports.#
 	# --force                          Force overwrite of existing CA files in   #
 	#                                  setup mode or force renew of CA certs.    #
 	# --select-ca [CA]                 Select a specified CA from:               #
@@ -2009,6 +2010,7 @@ function help_switches()
 
 PCA_OPMODE=""
 PCA_USE_CONFIG=""
+PCA_PASSWORD=""
 PCA_FORCE=""
 PCA_SELECTED_CA="component-ca"
 PCA_SELECTED_STORE="component-store"
@@ -2087,6 +2089,10 @@ for arg in $*; do
 		--ocsp-verify)
 			PCA_OPMODE="ocsp-verify"
 			PCA_OCSP_PORT="$2"
+			shift
+		;;
+		--password)
+			PCA_PASSWORD="$2"
 			shift
 		;;
 		--force)
@@ -3244,8 +3250,9 @@ if [ "$PCA_OPMODE" = "create-request" -o "$PCA_OPMODE" = "create-certificate" ];
 	config=""
 	opts=""
 	
-	[ "$PCA_SUBJECT" = "" ] || opts="-subj '$PCA_SUBJECT'"
+	[ "$PCA_SUBJECT" = "" ] || opts="-subj '$PCA_SUBJECT' $opts"
 	[ "$PCA_NODES" = "" ] || opts="-nodes $opts"
+	[ "$PCA_PASSWORD" = "" ] || opts="-passin 'pass:$PCA_PASSWORD' -passout 'pass:$PCA_PASSWORD' $opts"
 	
 	case $PCA_USE_CONFIG in
 		identity|windows|ev|server|client|timestamp|smime|encryption|ocspsign)
@@ -3426,6 +3433,7 @@ if [ "$PCA_OPMODE" = "pkcs12" -o "$PCA_OPMODE" = "create-certificate" ]; then
 	
 	[ "$PCA_NAME" = "" ] || opts="-name '$PCA_NAME' $opts"
 	[ "$PCA_NODES" = "" ] || opts="-nodes $opts"
+	[ "$PCA_PASSWORD" = "" ] || opts="-passout 'pass:$PCA_PASSWORD' -passin 'pass:$PCA_PASSWORD' $opts"
 	
 	[ "$chain" != "" ] && /bin/bash -c "$PCA_OPENSSL pkcs12 -export $opts \
 		-inkey $PCA_BASE_PATH/ca/private/$PCA_FILENAME.key \
