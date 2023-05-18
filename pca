@@ -1072,6 +1072,16 @@ function config_ca_section_ext()
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
 
+	[ ocspsign_ext ]
+	keyUsage                = critical,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = critical,OCSPSigning
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	noCheck                 = null
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
+
 	EOF
 	
 	[ "$network" = "1" ] && cat <<-EOF
@@ -1093,6 +1103,16 @@ function config_ca_section_ext()
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
 		
+	[ ocspsign_ext ]
+	keyUsage                = critical,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = critical,OCSPSigning
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	noCheck                 = null
+	certificatePolicies     = perfectCAAssurance,perfectCADevice,perfectCATrustList,perfectCAExtenVal,perfectCAEVRandomOID
+
 	EOF
 	
 	[ "$identity" = "1" ] && cat <<-EOF
@@ -1136,6 +1156,16 @@ function config_ca_section_ext()
 	crlDistributionPoints   = @crl_info
 	certificatePolicies     = perfectCAAssurance,perfectCATrustList
 	
+	[ ocspsign_ext ]
+	keyUsage                = critical,digitalSignature
+	basicConstraints        = CA:false
+	extendedKeyUsage        = critical,OCSPSigning
+	subjectKeyIdentifier    = hash
+	authorityKeyIdentifier  = keyid:always
+	authorityInfoAccess     = @issuer_info
+	noCheck                 = null
+	certificatePolicies     = perfectCAAssurance,perfectCATrustList
+
 	EOF
 	
 	[ "$component" = "1" ] && cat <<-EOF
@@ -1190,7 +1220,7 @@ function config_ca_section_ext()
 	authorityInfoAccess     = @issuer_info
 	noCheck                 = null
 	certificatePolicies     = perfectCADevice,perfectCATrustList
-	
+
 	[ cps_entrust ]
 	policyIdentifier = $PCA_BASE_CPS_POLICY_OID
 	CPS.1 = $PCA_BASE_CPS_URL
@@ -2139,28 +2169,28 @@ for arg in $*; do
 			shift
 		;;
 		--identity-ca)
-			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" -o "$PCA_OPMODE" = "create-ocsp-sysd" -o "$PCA_OPMODE" = "create-certificate" ]; then
 				PCA_SELECTED_CA="identity-ca"
 			fi			
 		;;
 		--component-ca)
-			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" -o "$PCA_OPMODE" = "create-ocsp-sysd" -o "$PCA_OPMODE" = "create-certificate" ]; then
 				PCA_SELECTED_CA="component-ca"
 			fi			
 		;;
 		--network-ca)
-			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" -o "$PCA_OPMODE" = "create-ocsp-sysd" -o "$PCA_OPMODE" = "create-certificate" ]; then
 				PCA_SELECTED_CA="network-ca"
 			fi			
 		;;
 		--master-ca)
-			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" ]; then
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" -o "$PCA_OPMODE" = "create-ocsp-sysd" -o "$PCA_OPMODE" = "create-certificate" ]; then
 				PCA_SELECTED_CA="master-ca"
 			fi			
 			PCA_USE_CONFIG="master_ca"
 		;;
 		--root-ca)
-			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" -o "$PCA_OPMODE" = "create-ocsp-sysd" ]; then
+			if [ "$PCA_OPMODE" = "revoke" -o "$PCA_OPMODE" = "ocsp-server" -o "$PCA_OPMODE" = "update-crl" -o "$PCA_OPMODE" = "create-ocsp-sysd" -o "$PCA_OPMODE" = "create-certificate" ]; then
 				PCA_SELECTED_CA="root-ca"
 			fi			
 			PCA_USE_CONFIG="root_ca"
@@ -3216,7 +3246,7 @@ if [ "$PCA_OPMODE" = "setup-ca" ]; then
 	echo -e "\n[0;1;34;94mPlease create your OCSP signing certificates\nand the online-responder services right now, with the following commands:[0m"
 	for pth in root-ca master-ca network-ca component-ca identity-ca; do
 		echo "# $0 --create-certificate --skip-pkcs12 --$pth --ocspsign --filename ocsp-$pth"
-		echo "# $0 --create-ocsp-systemd-service --$pth > /lib/systemd/system/$PCA_PROGNAME-$pth-ocsp.service"
+		echo "# $0 headless --create-ocsp-systemd-service --$pth > /lib/systemd/system/$PCA_PROGNAME-$pth-ocsp.service"
 	done
 	echo "# systemctl daemon-reload"
 
@@ -3227,7 +3257,7 @@ if [ "$PCA_OPMODE" = "setup-ca" ]; then
 	done
 
 	echo -e "\n[0;1;34;94mThan, create and install the CA maintainance crontab, using this command:[0m"
-	echo "# $0 --create-crontab > /etc/cron.d/perfect-ca"
+	echo "# $0 headless --create-crontab > /etc/cron.d/perfect-ca"
 
 	echo -e "\n[0;1;34;94mAfter this you can create your first EV certificate, using this command:[0m"
 	hostname=`hostname -f`
